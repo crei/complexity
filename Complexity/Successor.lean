@@ -1,3 +1,4 @@
+import Complexity.TuringMachine
 
 def succ_tm : TM 1 (Fin 4) Char :=
   {
