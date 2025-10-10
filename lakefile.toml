@@ -1,0 +1,22 @@
+name = "complexity"
+version = "0.1.0"
+defaultTargets = ["complexity"]
+
+[leanOptions]
+pp.unicode.fun = true # pretty-prints `fun a ↦ b`
+autoImplicit = false
+relaxedAutoImplicit = false
+weak.linter.mathlibStandardSet = true
+maxSynthPendingDepth = 3
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "master"
+
+[[lean_lib]]
+name = "Complexity"
+
+[[lean_exe]]
+name = "complexity"
+root = "Main"
