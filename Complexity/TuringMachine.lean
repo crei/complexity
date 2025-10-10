@@ -119,26 +119,30 @@ theorem tm_space_of_initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
         by simp [TM.initial_configuration, Configuration.work_tapes]
     _ = k := by simp
 
-def TM.run {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
-  (tm : TM k S Γ) (input : List Γ) (steps : ℕ) : Configuration k S Γ × List Γ :=
+def TM.run_for_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (tm : TM k S Γ) (conf : Configuration k S Γ) (steps : ℕ) : Configuration k S Γ × List Γ :=
   match steps with
-  | 0 => (TM.initial_configuration tm input, [])
+  | 0 => (conf, [])
   | Nat.succ n =>
-    let (conf, output_word) := TM.run tm input n
+    let (conf, output_word) := TM.run_for_steps tm conf n
     let (newConf, output_char) := tm.step conf
     (newConf, match output_char with
       | none => output_word
       | some o => output_word ++ [o])
 
+def TM.run_on_input_for_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (tm : TM k S Γ) (input : List Γ) (steps : ℕ) : Configuration k S Γ × List Γ :=
+  tm.run_for_steps (TM.initial_configuration tm input) steps
+
 def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
   (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
-  let (conf, output') := tm.run input t
+  let (conf, output') := tm.run_on_input_for_steps input t
   output = output' ∧ conf.state = tm.acceptState ∧ conf.space = s
 
 def TM.runs_in_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
   (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
   ∃ t' ≤ t,
-  let (conf, output') := tm.run input t'
+  let (conf, output') := tm.run_on_input_for_steps input t'
   output = output' ∧ conf.state = tm.acceptState ∧ conf.space ≤ s
 
 def computable_in_time_and_space {Γ} [Inhabited Γ]
