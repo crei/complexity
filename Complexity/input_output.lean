@@ -65,13 +65,9 @@ theorem move_at_most_one_space {Γ : Type u} [Inhabited Γ]
   (τ.move m).size ≤ τ.size + 1 := by
   cases m
   · simp [Tape.move, Tape.size]
-    cases τ.left
-    · simp [takeFromListOr]; rfl
-    · simp [takeFromListOr]; linarith
+    cases τ.left <;> simp [takeFromListOr] <;> linarith
   · simp [Tape.move, Tape.size]
-    cases τ.right
-    · simp [takeFromListOr]
-    · simp [takeFromListOr]; linarith
+    cases τ.right <;> simp [takeFromListOr]; linarith
   · simp [Tape.move, Tape.size]
 
 structure Configuration (k : Nat) S Γ where
@@ -83,7 +79,7 @@ def Configuration.work_tapes {k : Nat} {S} {Γ} (conf : Configuration k S Γ) : 
   fun i => conf.tapes i.succ
 
 -- The space required for a configuration. We do not count the space of the input tape,
--- but it does include all cells even visited, not only the non-empty.
+-- but it does include all cells ever visited, not only the non-empty.
 def Configuration.space {k : Nat} {S} {Γ} (conf : Configuration k S Γ) : Nat :=
   ∑ i, (conf.work_tapes i).size
 
