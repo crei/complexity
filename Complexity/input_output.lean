@@ -149,61 +149,13 @@ def computable_in_time_and_space {Γ} [Inhabited Γ]
   ∃ (k : Nat) (st : Nat) (S : Finset (Fin st)) (tm : TM k S Γ),
     ∀ input, tm.runs_in_time_and_space input (f input) (t input.length) (s input.length)
 
+-- TODO maybe force dyadic encoding so that the bounds make sense?
+-- or express the bounds in terms of log of the input?
 def nat_function_computable_in_time_and_space (f : ℕ → ℕ) (t : ℕ → ℕ) (s : ℕ → ℕ) : Prop :=
   ∃ (encoder : ℕ → List Bool) (decoder : List Bool → ℕ) (_ : ∀ n, decoder (encoder n) = n),
   ∃ (k : Nat) (st : Nat) (S : Finset (Fin st)) (tm : TM k S Bool),
   ∀ n, tm.runs_in_time_and_space (encoder n) (encoder (f n)) (t n) (s n)
 
-def dyadic_decoding_reverse (x : List Bool) : ℕ :=
-  match x with
-  | [] => 0
-  | false :: xs => (dyadic_decoding_reverse xs) * 2 + 1
-  | true :: xs => (dyadic_decoding_reverse xs) * 2 + 2
-
-def dyadic_decoding (x : List Bool) : ℕ :=
-  dyadic_decoding_reverse x.reverse
-
-def dyadic_encoding (n : ℕ) : List Bool :=
-  if n = 0 then []
-  else if Even n then
-    dyadic_encoding (n / 2 - 1) ++ [true]
-  else
-    dyadic_encoding ((n - 1) / 2) ++ [false]
-
-theorem dyadic_encoding_prop_one (n : ℕ) :
-  dyadic_encoding (2 * n + 1) = dyadic_encoding n ++ [false] := by
-  conv => rw [dyadic_encoding]
-  simp
-
-theorem dyadic_encoding_prop_two (n : ℕ) :
-  dyadic_encoding (2 * n + 2) = dyadic_encoding n ++ [true] := by
-  have h : Even (2 * n + 2) := by
-    apply Even.add <;> simp
-  conv => rw [dyadic_encoding]
-  simp [h]
-
-theorem dyadic_bijective (n : ℕ) :
-  dyadic_decoding (dyadic_encoding n) = n := by
-  refine Nat.strong_induction_on n ?_; intro n IH
-  unfold dyadic_decoding at IH
-  by_cases hEven : Even n
-  · match n with
-    | .zero => simp [dyadic_encoding, dyadic_decoding, dyadic_decoding_reverse]
-    | .succ m =>
-      have h2 : ∃ n', m = 2 * n' + 1 := by
-        simp [Nat.even_add_one, Nat.succ_eq_add_one] at hEven
-        exact hEven
-      rcases h2 with ⟨n', h2⟩
-      rw [h2]
-      simp [dyadic_encoding_prop_two, dyadic_decoding, dyadic_decoding_reverse]
-      simp [IH n' (by linarith), Nat.mul_comm]
-  · have h2 : ∃ n', n = 2 * n' + 1 := by
-      simp_all only [Nat.not_even_iff_odd]
-      exact hEven
-    rcases h2 with ⟨n', hn'⟩
-    rw [hn']
-    simp [dyadic_encoding_prop_one, dyadic_decoding, dyadic_decoding_reverse]
-    simp [IH n' (by linarith), Nat.mul_comm]
 
 theorem id_is_computable_in_constant_time_and_space :
   (nat_function_computable_in_time_and_space (fun x => x) (fun n => 1) (fun n => 1)) := by
@@ -214,7 +166,32 @@ theorem id_is_computable_in_constant_time_and_space :
 --- TODO continue with defining:
 -- computes function f in time t and space s
 -- and then have a theorem for function composition
+-- have a theorem for getting an accepting TM into a state where it clears all
+-- tape cells
+-- show that Nat.succ is computable in constant time and space
 -- and then also have a theorem for writing the output into a work tape.
+
+
+
+-- TODO time bound is probably better
+-- TODO the parts with the empty symbol do not work.
+theorem succ_is_in_constant_space :
+  (nat_function_computable_in_time_and_space Nat.succ (fun n => n) (fun n => 1)) := by
+  let encoder := dyadic_encoding -- actually use reverse dyadic coding
+  let decoder := dyadic_decoding -- actually use reverse dyadic coding
+  let k := 0
+  let st := 3
+  sorry
+  -- use encoder, decoder, hdec, k, st, S, tm
+  -- intro n
+  -- have hsteps : n + 2 ≤ n + 2 := by linarith
+  -- use n + 2, hsteps
+  -- simp [TM.runs_in_time_and_space]
+  -- constructor
+  -- · simp [tm.run]
+  --   induction n with
+  --   | zero => simp [encoder]
+  --   | succ m ih =>
 
 
 inductive TM.reachable_in_time {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]

@@ -1,0 +1,98 @@
+import Mathlib
+
+def dyadic_decoding_reverse (x : List Bool) : ℕ :=
+  match x with
+  | [] => 0
+  | false :: xs => (dyadic_decoding_reverse xs) * 2 + 1
+  | true :: xs => (dyadic_decoding_reverse xs) * 2 + 2
+
+/-- Dyadic encoding of a natural number, but reversed,
+i.e. starting with the least significant bit.
+-/
+def dyadic_encoding_reverse (n : ℕ) : List Bool :=
+  if n = 0 then []
+  else if Even n then
+    true :: dyadic_encoding_reverse (n / 2 - 1)
+  else
+    false :: dyadic_encoding_reverse ((n - 1) / 2)
+
+def dyadic_decoding (x : List Bool) : ℕ :=
+  dyadic_decoding_reverse x.reverse
+
+def dyadic_encoding (n : ℕ) : List Bool :=
+  if n = 0 then []
+  else if Even n then
+    dyadic_encoding (n / 2 - 1) ++ [true]
+  else
+    dyadic_encoding ((n - 1) / 2) ++ [false]
+
+theorem dyadic_encoding_prop_one (n : ℕ) :
+  dyadic_encoding (2 * n + 1) = dyadic_encoding n ++ [false] := by
+  conv => rw [dyadic_encoding]
+  simp
+
+theorem dyadic_encoding_prop_two (n : ℕ) :
+  dyadic_encoding (2 * n + 2) = dyadic_encoding n ++ [true] := by
+  have h : Even (2 * n + 2) := by
+    apply Even.add <;> simp
+  conv => rw [dyadic_encoding]
+  simp [h]
+
+
+theorem dyadic_encoding_reverse_prop_one (n : ℕ) :
+  dyadic_encoding_reverse (2 * n + 1) = false :: dyadic_encoding_reverse n := by
+  conv => rw [dyadic_encoding_reverse]
+  simp
+
+theorem dyadic_encoding_reverse_prop_two (n : ℕ) :
+  dyadic_encoding_reverse (2 * n + 2) = true :: dyadic_encoding_reverse n := by
+  have h : Even (2 * n + 2) := by
+    apply Even.add <;> simp
+  conv => rw [dyadic_encoding_reverse]
+  simp [h]
+
+
+theorem dyadic_bijective (n : ℕ) :
+  dyadic_decoding (dyadic_encoding n) = n := by
+  refine Nat.strong_induction_on n ?_; intro n IH
+  unfold dyadic_decoding at IH
+  by_cases hEven : Even n
+  · match n with
+    | .zero => simp [dyadic_encoding, dyadic_decoding, dyadic_decoding_reverse]
+    | .succ m =>
+      have h2 : ∃ n', m = 2 * n' + 1 := by
+        simp [Nat.even_add_one, Nat.succ_eq_add_one] at hEven
+        exact hEven
+      rcases h2 with ⟨n', h2⟩
+      rw [h2]
+      simp [dyadic_encoding_prop_two, dyadic_decoding, dyadic_decoding_reverse]
+      simp [IH n' (by linarith), Nat.mul_comm]
+  · have h2 : ∃ n', n = 2 * n' + 1 := by
+      simp_all only [Nat.not_even_iff_odd]
+      exact hEven
+    rcases h2 with ⟨n', hn'⟩
+    rw [hn']
+    simp [dyadic_encoding_prop_one, dyadic_decoding, dyadic_decoding_reverse]
+    simp [IH n' (by linarith), Nat.mul_comm]
+
+theorem dyadic_reverse_bijective (n : ℕ) :
+  dyadic_decoding_reverse (dyadic_encoding_reverse n) = n := by
+  refine Nat.strong_induction_on n ?_; intro n IH
+  by_cases hEven : Even n
+  · match n with
+    | .zero => simp [dyadic_encoding_reverse, dyadic_decoding_reverse]
+    | .succ m =>
+      have h2 : ∃ n', m = 2 * n' + 1 := by
+        simp [Nat.even_add_one, Nat.succ_eq_add_one] at hEven
+        exact hEven
+      rcases h2 with ⟨n', h2⟩
+      rw [h2]
+      simp [dyadic_encoding_reverse_prop_two, dyadic_decoding_reverse]
+      simp [IH n' (by linarith), Nat.mul_comm]
+  · have h2 : ∃ n', n = 2 * n' + 1 := by
+      simp_all only [Nat.not_even_iff_odd]
+      exact hEven
+    rcases h2 with ⟨n', hn'⟩
+    rw [hn']
+    simp [dyadic_encoding_reverse_prop_one, dyadic_decoding_reverse]
+    simp [IH n' (by linarith), Nat.mul_comm]
