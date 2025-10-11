@@ -3,25 +3,41 @@ import Mathlib
 inductive Movement
   | left
   | right
-  | stayj
+  | stay
+
+universe u v
+
+-- Alias for the transition function type
+abbrev Transition (k : Nat) (Q : Type u) (Γ : Type v) :=
+  Q → (Fin (k + 1) → Γ) →
+    Q × (Fin k → Γ) × Option Γ × (Fin (k + 1) → Movement)
+
+def is_inert {Q : Type u} {Γ : Type v} {k : Nat}
+  (transition : Transition k Q Γ) (σ : Q) (read : (Fin (k + 1) → Γ)) : Prop :=
+  let (newState, writes, output, moves) := transition σ read
+  (newState = σ ∧ output = none
+    ∧ (∀ i, writes i = read i.succ)
+    ∧ (∀ i, moves i = .stay))
 
 -- Turing machine with input tape, k work tapes, and one output tape with work alphabet Γ.
 structure TM (k : Nat) Q Γ [Inhabited Γ] where
   -- input: state, one symbol from the input tape, k symbols from the k work tapes
   -- output: state, k symbols to write to the work tapes, one optional symbol to write
   -- to the output tape, k + 1 movements (output head is moved always after outputting)
-  transition : (σ : Q) → (symbols_read : Fin (k + 1) → Γ) →
-               Q × (Fin k → Γ) × Option Γ × (Fin (k + 1) → Movement)
+  transition : Transition k Q Γ
   startState : Q
   acceptState : Q
   rejectState : Q
+  inert_after_accept : ∀ symbols_read, is_inert transition acceptState symbols_read
+  inert_after_reject : ∀ symbols_read, is_inert transition rejectState symbols_read
+  does_not_output_default : ∀ σ symbols_read,
+    let (_, _, output, _) := transition σ symbols_read
+    output ≠ some default
 
 structure Tape Γ where
   left : List Γ
   head : Γ -- The head is pointing at this symbol
   right : List Γ
-
-universe u
 
 -- Actually: blank should not be part of input!
 @[simp]
@@ -51,6 +67,12 @@ def Tape.write {Γ : Type u} (τ : Tape Γ) (symbol : Γ) : Tape Γ :=
 @[simp]
 def Tape.size {Γ : Type u} (τ : Tape Γ) : Nat :=
   τ.left.length + 1 + τ.right.length
+
+@[simp] theorem Tape.move_stay {Γ : Type*} [Inhabited Γ] (t : Tape Γ) :
+  t.move Movement.stay = t := rfl
+
+@[simp] theorem Tape.write_same {Γ : Type*} (t : Tape Γ) :
+  t.write t.head = t := by rfl
 
 example {Γ : Type u} (τ : Tape Γ) : τ.size ≥ 1 := by
   simp [Tape.size]
@@ -94,20 +116,64 @@ def Configuration.move {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (moves : Fin (k + 1) → Movement) : Configuration k S Γ :=
   { conf with tapes := fun i => (conf.tapes i).move (moves i) }
 
-def TM.step {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
-  (tm : TM k S Γ) (conf : Configuration k S Γ) : Configuration k S Γ × Option Γ :=
-  if conf.state = tm.acceptState ∨ conf.state = tm.rejectState then
-    (conf, none)
-  else
-    let readSymbols := fun i => (conf.tapes i).head
-    let (newState, writeSymbols, output, moves) := tm.transition conf.state readSymbols
-    (((conf.setState newState).write writeSymbols).move moves, output)
+-- Simp lemmas for Configuration operations
+@[simp] theorem Configuration.setState_state {k : Nat} {S} {Γ} (conf : Configuration k S Γ) (s : S) :
+  (conf.setState s).state = s := rfl
+
+@[simp] theorem Configuration.setState_tapes {k : Nat} {S} {Γ} (conf : Configuration k S Γ) (s : S) :
+  (conf.setState s).tapes = conf.tapes := rfl
+
+@[simp] theorem Configuration.setState_same {k : Nat} {S} {Γ} (conf : Configuration k S Γ) :
+  conf.setState conf.state = conf := rfl
+
+@[simp] theorem Configuration.write_state {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (writes : Fin k → Γ) :
+  (conf.write writes).state = conf.state := rfl
+
+@[simp] theorem Configuration.move_state {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (moves : Fin (k + 1) → Movement) :
+  (conf.move moves).state = conf.state := rfl
+
+@[simp] theorem Configuration.write_tapes_zero {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (writes : Fin k → Γ) :
+  (conf.write writes).tapes 0 = conf.tapes 0 := rfl
+
+@[simp] theorem Configuration.move_tapes {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (moves : Fin (k + 1) → Movement) (i : Fin (k + 1)) :
+  ((conf.move moves).tapes i) = (conf.tapes i).move (moves i) := rfl
+
+def Transition.step {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Configuration k S Γ × Option Γ :=
+  let readSymbols := fun i => (conf.tapes i).head
+  let (newState, writeSymbols, output, moves) := σ conf.state readSymbols
+  let newConf := {
+    state := newState,
+    tapes := fun i => match i with
+      | ⟨0, _⟩ => (conf.tapes 0).move (moves ⟨0, Nat.zero_lt_succ k⟩)
+      | ⟨j + 1, h⟩ => (
+            (conf.tapes i).write
+              (writeSymbols ⟨j, Nat.lt_of_succ_lt_succ h⟩)
+          ).move (moves i)
+  }
+  (newConf, output)
 
 def TM.initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
   (tm : TM k S Γ) (input : List Γ) : Configuration k S Γ :=
   let firstTape := Tape.fromInput input
   let emptyTape := Tape.fromInput []
   { state := tm.startState, tapes := fun i => if i.val = 0 then firstTape else emptyTape }
+
+lemma inert_does_not_change_configuration {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ)
+  (h_inert : is_inert σ conf.state (fun i => (conf.tapes i).head)):
+  let (newConf, output) := σ.step conf
+  newConf = conf ∧ output = none := by
+  unfold is_inert at h_inert
+  simp [Transition.step, h_inert]
+  simp_all only
+  -- here we have the goal { state := conf.state, tapes := ... }
+
+  sorry
 
 theorem tm_space_of_initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
   (tm : TM k S Γ) (input : List Γ) :
@@ -125,7 +191,7 @@ def TM.run_for_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
   | 0 => (conf, [])
   | Nat.succ n =>
     let (conf, output_word) := TM.run_for_steps tm conf n
-    let (newConf, output_char) := tm.step conf
+    let (newConf, output_char) := tm.transition.step conf
     (newConf, match output_char with
       | none => output_word
       | some o => output_word ++ [o])

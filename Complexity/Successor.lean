@@ -106,28 +106,6 @@ def succ_tm : TM 1 (Fin 4) BlankChar :=
 --         exact hd d (by simpa)
 
 
--- Simp lemmas for Configuration operations
-@[simp] theorem Configuration.setState_state {k : Nat} {S} {Γ} (conf : Configuration k S Γ) (s : S) :
-  (conf.setState s).state = s := rfl
-
-@[simp] theorem Configuration.setState_tapes {k : Nat} {S} {Γ} (conf : Configuration k S Γ) (s : S) :
-  (conf.setState s).tapes = conf.tapes := rfl
-
-@[simp] theorem Configuration.write_state {k : Nat} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (writes : Fin k → Γ) :
-  (conf.write writes).state = conf.state := rfl
-
-@[simp] theorem Configuration.move_state {k : Nat} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (moves : Fin (k + 1) → Movement) :
-  (conf.move moves).state = conf.state := rfl
-
-@[simp] theorem Configuration.write_tapes_zero {k : Nat} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (writes : Fin k → Γ) :
-  (conf.write writes).tapes 0 = conf.tapes 0 := rfl
-
-@[simp] theorem Configuration.move_tapes {k : Nat} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (moves : Fin (k + 1) → Movement) (i : Fin (k + 1)) :
-  ((conf.move moves).tapes i) = (conf.tapes i).move (moves i) := rfl
 
 -- Lemmas for Tape operations
 @[simp] theorem Tape.move_right_empty {Γ : Type*} [Inhabited Γ] (t : Tape Γ) (h : t.right = []) :
@@ -146,8 +124,6 @@ theorem Tape.move_right_cons' {Γ : Type*} [Inhabited Γ] (t : Tape Γ) (c : Γ)
   (t.move Movement.right).right = cs := by
   simp [Tape.move, takeFromListOr, h]
 
-@[simp] theorem Tape.move_stay {Γ : Type*} [Inhabited Γ] (t : Tape Γ) :
-  t.move Movement.stay = t := rfl
 
 -- Simp lemmas for TM.step
 @[simp] theorem TM.step_accept {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
