@@ -261,11 +261,10 @@ lemma copies_in_state_one_of_dyadic
   | cons c cs ih =>
     -- Inductive case: head followed by c::cs
     obtain h | h := hd inputTape.head (by simp [inputTape])
-    <;> simp [remainingInput, inputTape, hright_gen, TM.run_for_steps, h]
-    <;> refine ih ?_ ?_ ?_
-    <;> [simp [TM.step, succ_tm, hstate, h]; simp [TM.step, succ_tm, hstate, h]]
-    <;> [simp [hright_gen]; simp [hright_gen]]
-    <;> (intro d hdmem
-         apply hd
-         simp [inputTape, hright_gen, List.mem_cons]
-         exact Or.inr hdmem)
+    <;> simp [remainingInput, inputTape, hright_gen, TM.run_for_steps,
+              succ_tm_step_state1_char1, succ_tm_step_state1_char2, hstate, h]
+    <;> (apply ih <;> simp [TM.step, succ_tm, hstate, h, hright_gen]
+         · intro d hdmem
+           apply hd
+           simp [inputTape, hright_gen, List.mem_cons]
+           exact Or.inr hdmem)

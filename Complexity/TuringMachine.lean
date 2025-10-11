@@ -3,7 +3,7 @@ import Mathlib
 inductive Movement
   | left
   | right
-  | stay
+  | stayj
 
 -- Turing machine with input tape, k work tapes, and one output tape with work alphabet Γ.
 structure TM (k : Nat) Q Γ [Inhabited Γ] where

@@ -47,16 +47,27 @@ def input_head_reset {k : Nat} {S Γ : Type*} [Inhabited Γ]
 def steps_to_leftmost {Γ : Type*} (τ : Tape Γ) : Nat :=
   τ.left.length
 
+/-- Moving left once on a tape gives the tail of the left list -/
+lemma tape_move_left_tail {Γ : Type*} [Inhabited Γ] (τ : Tape Γ) :
+    (τ.move Movement.left).left = τ.left.tail := by
+  unfold Tape.move takeFromListOr
+  cases τ.left <;> rfl
+
+/-- Helper lemma: folding left moves over a list reduces the tape's left field -/
+lemma foldl_move_left_reduces {Γ : Type*} [Inhabited Γ] (τ : Tape Γ) (n : Nat) :
+    ((List.range n).foldl (fun t _ => t.move Movement.left) τ).left =
+    τ.left.drop n := by
+  induction n generalizing τ with
+  | zero => rfl
+  | succ n ih =>
+    rw [List.range_succ, List.foldl_append, List.foldl_cons, List.foldl_nil,
+        tape_move_left_tail, ih, List.tail_drop]
+
 /-- Moving left repeatedly reaches the leftmost position -/
 lemma tape_reaches_leftmost {Γ : Type*} [Inhabited Γ] (τ : Tape Γ) :
   let τ' := (List.range (steps_to_leftmost τ)).foldl (fun t _ => t.move Movement.left) τ
   τ'.left = [] := by
-  simp [steps_to_leftmost] at *
-  induction τ.left with
-  | nil => simp [τ']
-  | cons _ _ ih =>
-    simp [τ', TM.move, List.foldl]
-    apply ih
+  simp [steps_to_leftmost, foldl_move_left_reduces]
 
 /-! ### Phase 2: Reset Machine States and Transitions -/
 
