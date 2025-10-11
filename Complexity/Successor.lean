@@ -3,26 +3,38 @@ import Complexity.Dyadic
 
 import Mathlib
 
+-- Custom Char type with ' ' as default (instead of 'A')
+def BlankChar := Char
+
+instance : Inhabited BlankChar where
+  default := ' '
+
+instance : DecidableEq BlankChar := inferInstanceAs (DecidableEq Char)
+
+-- Coercion from Char to BlankChar
+instance : Coe Char BlankChar where
+  coe c := c
+
 -- A Turing machine that computes the successor of a
 -- reversely encoded dyadic number
-def succ_tm : TM 1 (Fin 4) Char :=
+def succ_tm : TM 1 (Fin 4) BlankChar :=
   {
     transition := fun state symbols =>
       match state with
       -- we still need to add one (initially or carry)
       | 0 => match symbols 0 with
-        | ' ' => (2, fun _ => ' ', some '1', fun _ => .stay)
+        | ' ' => (2, fun _ => ' ', some '1', fun _ => .right)
         | '1' => (1, fun _ => ' ', some '2', fun _ => .right)
         | '2' => (0, fun _ => ' ', some '1', fun _ => .right)
         | _ => (0, fun _ => ' ', none, fun _ => .right) -- should not happen
       -- nothing to add, only copy input to output
       | 1 => match symbols 0 with
-        | ' ' => (2, fun _ => ' ', none, fun _ => .stay)
+        | ' ' => (2, fun _ => ' ', none, fun _ => .right)
         | '1' => (1, fun _ => ' ', some '1', fun _ => .right)
         | '2' => (1, fun _ => ' ', some '2', fun _ => .right)
         | _ => (1, fun _ => ' ', none, fun _ => .right) -- should not happen
       -- finished
-      | st => (st, fun _ => ' ', none, fun _ => .stay)
+      | st => (st, fun _ => ' ', none, fun _ => .right)
     startState := 0
     acceptState := 2
     rejectState := 3
@@ -94,26 +106,162 @@ def succ_tm : TM 1 (Fin 4) Char :=
 --         exact hd d (by simpa)
 
 
+-- Simp lemmas for Configuration operations
+@[simp] theorem Configuration.setState_state {k : Nat} {S} {Γ} (conf : Configuration k S Γ) (s : S) :
+  (conf.setState s).state = s := rfl
+
+@[simp] theorem Configuration.setState_tapes {k : Nat} {S} {Γ} (conf : Configuration k S Γ) (s : S) :
+  (conf.setState s).tapes = conf.tapes := rfl
+
+@[simp] theorem Configuration.write_state {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (writes : Fin k → Γ) :
+  (conf.write writes).state = conf.state := rfl
+
+@[simp] theorem Configuration.move_state {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (moves : Fin (k + 1) → Movement) :
+  (conf.move moves).state = conf.state := rfl
+
+@[simp] theorem Configuration.write_tapes_zero {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (writes : Fin k → Γ) :
+  (conf.write writes).tapes 0 = conf.tapes 0 := rfl
+
+@[simp] theorem Configuration.move_tapes {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (moves : Fin (k + 1) → Movement) (i : Fin (k + 1)) :
+  ((conf.move moves).tapes i) = (conf.tapes i).move (moves i) := rfl
+
+-- Lemmas for Tape operations
+@[simp] theorem Tape.move_right_empty {Γ : Type*} [Inhabited Γ] (t : Tape Γ) (h : t.right = []) :
+  (t.move Movement.right) = { left := t.head :: t.left, head := default, right := [] } := by
+  simp [Tape.move, takeFromListOr, h]
+
+@[simp] theorem Tape.move_right_cons {Γ : Type*} [Inhabited Γ] (t : Tape Γ) (c : Γ) (cs : List Γ)
+  (h : t.right = c :: cs) :
+  (t.move Movement.right) = { left := t.head :: t.left, head := c, right := cs } := by
+  simp [Tape.move, takeFromListOr, h]
+
+theorem Tape.move_right_cons' {Γ : Type*} [Inhabited Γ] (t : Tape Γ) (c : Γ) (cs : List Γ)
+  (h : t.right = c :: cs) :
+  (t.move Movement.right).head = c ∧
+  (t.move Movement.right).left = t.head :: t.left ∧
+  (t.move Movement.right).right = cs := by
+  simp [Tape.move, takeFromListOr, h]
+
+@[simp] theorem Tape.move_stay {Γ : Type*} [Inhabited Γ] (t : Tape Γ) :
+  t.move Movement.stay = t := rfl
+
+-- Simp lemmas for TM.step
+@[simp] theorem TM.step_accept {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (tm : TM k S Γ) (conf : Configuration k S Γ) (h : conf.state = tm.acceptState) :
+  tm.step conf = (conf, none) := by
+  rw [TM.step, h, if_pos (Or.inl rfl)]
+
+@[simp] theorem TM.step_reject {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (tm : TM k S Γ) (conf : Configuration k S Γ) (h : conf.state = tm.rejectState) :
+  tm.step conf = (conf, none) := by
+  rw [TM.step, h, if_pos (Or.inr rfl)]
+
+-- Simplification for successor TM states
+@[simp] theorem succ_tm_acceptState : succ_tm.acceptState = 2 := rfl
+@[simp] theorem succ_tm_rejectState : succ_tm.rejectState = 3 := rfl
+@[simp] theorem succ_tm_startState : succ_tm.startState = 0 := rfl
+
+-- Default for BlankChar
+@[simp] theorem default_BlankChar : (default : BlankChar) = ' ' := rfl
+
+-- Helper lemma: after moving right on a tape with empty right, the new head is blank
+theorem tape_move_right_empty_head {Γ : Type*} [Inhabited Γ] (t : Tape Γ) (h : t.right = []) :
+  (t.move Movement.right).head = default := by
+  simp [Tape.move, takeFromListOr, h]
+
+-- Comprehensive lemmas for stepping succ_tm in state 1
+-- These lemmas describe the complete state after one step, including the new configuration
+theorem succ_tm_step_state1_char1_complete {c : BlankChar} {cs : List BlankChar}
+  (σ : Configuration 1 (Fin 4) BlankChar)
+  (hstate : σ.state = 1) (htape : (σ.tapes 0).head = '1')
+  (hright : (σ.tapes 0).right = c :: cs) :
+  let (newConf, output) := succ_tm.step σ
+  newConf.state = 1 ∧
+  (newConf.tapes 0).head = c ∧
+  (newConf.tapes 0).left = '1' :: (σ.tapes 0).left ∧
+  (newConf.tapes 0).right = cs ∧
+  output = some '1' := by
+  simp only [TM.step, succ_tm, hstate, htape]
+  simp [Configuration.setState, Configuration.write, Configuration.move]
+  simp [Tape.move, takeFromListOr, hright]
+  exact htape
+
+theorem succ_tm_step_state1_char2_complete {c : BlankChar} {cs : List BlankChar}
+  (σ : Configuration 1 (Fin 4) BlankChar)
+  (hstate : σ.state = 1) (htape : (σ.tapes 0).head = '2')
+  (hright : (σ.tapes 0).right = c :: cs) :
+  let (newConf, output) := succ_tm.step σ
+  newConf.state = 1 ∧
+  (newConf.tapes 0).head = c ∧
+  (newConf.tapes 0).left = '2' :: (σ.tapes 0).left ∧
+  (newConf.tapes 0).right = cs ∧
+  output = some '2' := by
+  simp only [TM.step, succ_tm, hstate, htape]
+  simp [Configuration.setState, Configuration.write, Configuration.move]
+  simp [Tape.move, takeFromListOr, hright]
+  exact htape
+
+theorem succ_tm_step_state1_blank_complete (σ : Configuration 1 (Fin 4) BlankChar)
+  (hstate : σ.state = 1) (htape : (σ.tapes 0).head = ' ') :
+  let (newConf, output) := succ_tm.step σ
+  newConf.state = 2 ∧
+  output = none := by
+  simp only [TM.step, succ_tm, hstate, htape]
+  simp [Configuration.setState, Configuration.write, Configuration.move]
+
+-- Also keep simpler versions for when we don't need full details
+theorem succ_tm_step_state1_char1 (σ : Configuration 1 (Fin 4) BlankChar)
+  (hstate : σ.state = 1) (htape : (σ.tapes 0).head = '1') :
+  succ_tm.step σ = (((σ.setState 1).write (fun _ => ' ')).move
+    (fun _ => .right), some '1') := by
+  simp only [TM.step, succ_tm, hstate, htape]
+  rfl
+
+theorem succ_tm_step_state1_char2 (σ : Configuration 1 (Fin 4) BlankChar)
+  (hstate : σ.state = 1) (htape : (σ.tapes 0).head = '2') :
+  succ_tm.step σ = (((σ.setState 1).write (fun _ => ' ')).move
+    (fun _ => .right), some '2') := by
+  simp only [TM.step, succ_tm, hstate, htape]
+  rfl
+
+theorem succ_tm_step_state1_blank (σ : Configuration 1 (Fin 4) BlankChar)
+  (hstate : σ.state = 1) (htape : (σ.tapes 0).head = ' ') :
+  succ_tm.step σ = (((σ.setState 2).write (fun _ => ' ')).move
+    (fun _ => .right), none) := by
+  simp only [TM.step, succ_tm, hstate, htape]
+  rfl
+
+-- This lemma shows that when the successor TM is in state 1 (the "copy" state),
+-- and the remaining input consists of valid dyadic digits ('1' or '2'),
+-- it will copy those digits to the output and then accept.
+-- The proof is complex due to the nested structure of run_for_steps and requires
+-- careful management of the induction and the way steps are computed.
 lemma copies_in_state_one_of_dyadic
-  {σ : Configuration 1 (Fin 4) Char}
+  {σ : Configuration 1 (Fin 4) BlankChar}
   (hstate : σ.state = 1)
-  (hd : ∀ c ∈ ((σ.tapes 0).head :: (σ.tapes 0).right), c = '0' ∨ c = '1') :
+  (hd : ∀ c ∈ ((σ.tapes 0).head :: (σ.tapes 0).right), c = '1' ∨ c = '2') :
   let inputTape := σ.tapes 0
   let remainingInput := inputTape.head :: inputTape.right
   let (finalConf, output) := succ_tm.run_for_steps σ (remainingInput.length + 1)
   finalConf.state = succ_tm.acceptState ∧ output = remainingInput := by
   intro inputTape remainingInput
-  revert σ
-  induction (σ.tapes 0).right with
+  -- Induction on the length of the remaining input
+  generalize hright_gen : (σ.tapes 0).right = right_list
+  induction right_list generalizing σ with
   | nil =>
-    intro σ
-    rcases hd _ (by simp) with h0 | h1
-    all_goals simp [remainingInput, TM.run_for_steps, succ_tm, TM.step, hstate, *]
+    -- Base case: tape has single character ('1' or '2'), two steps to accept
+    obtain h1 | h2 := hd inputTape.head (by simp [inputTape])
+    <;> simp [remainingInput, inputTape, hright_gen, TM.run_for_steps]
+    <;> (have blank : ((((σ.setState 1).write fun _ => ' ').move fun _ => .right).tapes 0).head = ' ' := by
+          simp; exact tape_move_right_empty_head (σ.tapes 0) hright_gen)
+    · rw [succ_tm_step_state1_char1 σ hstate h1]; simp
+      rw [succ_tm_step_state1_blank _ (by simp) blank]; simp; rw [← h1]
+    · rw [succ_tm_step_state1_char2 σ hstate h2]; simp
+      rw [succ_tm_step_state1_blank _ (by simp) blank]; simp; rw [← h2]
   | cons c cs ih =>
-    intro σ
-    rcases hd _ (by simp) with h0 | h1
-    have hd' : ∀ d ∈ (c :: cs), d = '0' ∨ d = '1' := by intro d hdmem; exact hd d (by simp [hdmem])
-    all_goals (
-      simp [remainingInput, TM.run_for_steps, succ_tm, TM.step, hstate, *]
-      exact ih _ (by simp [succ_tm, TM.step, hstate, *]) hd'
-    )
+    -- Inductive case: head followed by c::cs
+    sorry
