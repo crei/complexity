@@ -253,15 +253,19 @@ lemma copies_in_state_one_of_dyadic
   generalize hright_gen : (σ.tapes 0).right = right_list
   induction right_list generalizing σ with
   | nil =>
-    -- Base case: tape has single character ('1' or '2'), two steps to accept
-    obtain h1 | h2 := hd inputTape.head (by simp [inputTape])
-    <;> simp [remainingInput, inputTape, hright_gen, TM.run_for_steps]
-    <;> (have blank : ((((σ.setState 1).write fun _ => ' ').move fun _ => .right).tapes 0).head = ' ' := by
-          simp; exact tape_move_right_empty_head (σ.tapes 0) hright_gen)
-    · rw [succ_tm_step_state1_char1 σ hstate h1]; simp
-      rw [succ_tm_step_state1_blank _ (by simp) blank]; simp; rw [← h1]
-    · rw [succ_tm_step_state1_char2 σ hstate h2]; simp
-      rw [succ_tm_step_state1_blank _ (by simp) blank]; simp; rw [← h2]
+    -- Base case: single character (either '1' or '2')
+    obtain h | h := hd inputTape.head (by simp [inputTape])
+    <;> simp [remainingInput, inputTape, hright_gen, TM.run_for_steps,
+              succ_tm_step_state1_char1, succ_tm_step_state1_char2,
+              succ_tm_step_state1_blank, hstate, h]
   | cons c cs ih =>
     -- Inductive case: head followed by c::cs
-    sorry
+    obtain h | h := hd inputTape.head (by simp [inputTape])
+    <;> simp [remainingInput, inputTape, hright_gen, TM.run_for_steps, h]
+    <;> refine ih ?_ ?_ ?_
+    <;> [simp [TM.step, succ_tm, hstate, h]; simp [TM.step, succ_tm, hstate, h]]
+    <;> [simp [hright_gen]; simp [hright_gen]]
+    <;> (intro d hdmem
+         apply hd
+         simp [inputTape, hright_gen, List.mem_cons]
+         exact Or.inr hdmem)
