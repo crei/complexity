@@ -9,30 +9,12 @@ universe u v
 
 -- Alias for the transition function type
 abbrev Transition (k : Nat) (Q : Type u) (Γ : Type v) :=
-  Q → (Fin (k + 1) → Γ) →
-    Q × (Fin k → Γ) × Option Γ × (Fin (k + 1) → Movement)
+  Q → (Fin k → Γ) → Q × ((Fin k) → Γ) × ((Fin k) → Movement)
 
-def is_inert {Q : Type u} {Γ : Type v} {k : Nat}
-  (transition : Transition k Q Γ) (σ : Q) (read : (Fin (k + 1) → Γ)) : Prop :=
-  let (newState, writes, output, moves) := transition σ read
-  (newState = σ ∧ output = none
-    ∧ (∀ i, writes i = read i.succ)
-    ∧ (∀ i, moves i = .stay))
-
--- Turing machine with input tape, k work tapes, and one output tape with work alphabet Γ.
 structure TM (k : Nat) Q Γ [Inhabited Γ] where
-  -- input: state, one symbol from the input tape, k symbols from the k work tapes
-  -- output: state, k symbols to write to the work tapes, one optional symbol to write
-  -- to the output tape, k + 1 movements (output head is moved always after outputting)
   transition : Transition k Q Γ
   startState : Q
-  acceptState : Q
-  rejectState : Q
-  inert_after_accept : ∀ symbols_read, is_inert transition acceptState symbols_read
-  inert_after_reject : ∀ symbols_read, is_inert transition rejectState symbols_read
-  does_not_output_default : ∀ σ symbols_read,
-    let (_, _, output, _) := transition σ symbols_read
-    output ≠ some default
+  stopState : Q
 
 structure Tape Γ where
   left : List Γ
@@ -46,6 +28,7 @@ def Tape.fromInput {Γ : Type u} (input : List Γ) [Inhabited Γ] : Tape Γ :=
     | [] => { left := [], head := default, right := [] }
     | h :: t => { left := [], head := h, right := t }
 
+@[inline]
 def takeFromListOr {Γ : Type u} [Inhabited Γ] (l : List Γ) : Γ × List Γ :=
   match l with
     | [] => (default, [])
@@ -91,71 +74,36 @@ theorem move_at_most_one_space {Γ : Type u} [Inhabited Γ]
 
 structure Configuration (k : Nat) S Γ where
   state : S
-  tapes : Fin (k + 1) → Tape Γ
--- output?
+  tapes : Fin k → Tape Γ
 
-def Configuration.work_tapes {k : Nat} {S} {Γ} (conf : Configuration k S Γ) : Fin k → Tape Γ :=
-  fun i => conf.tapes i.succ
-
--- The space required for a configuration. We do not count the space of the input tape,
--- but it does include all cells ever visited, not only the non-empty.
+-- We also count the input tape.
+-- TODO later define a different space measure that does not count the input
+-- or output tape if the input tape is not written to and the output tape
+-- is never read from.
 def Configuration.space {k : Nat} {S} {Γ} (conf : Configuration k S Γ) : Nat :=
-  ∑ i, (conf.work_tapes i).size
-
-def Configuration.setState {k : Nat} {S} {Γ}
-  (conf : Configuration k S Γ) (σ : S) : Configuration k S Γ :=
-  { conf with state := σ }
-
-def Configuration.write {k : Nat} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (writes : Fin k → Γ) : Configuration k S Γ :=
-  { conf with tapes := fun i => match i with
-    | ⟨0, _⟩ => conf.tapes 0
-    | ⟨j + 1, h⟩ => (conf.tapes i).write (writes ⟨j, Nat.lt_of_succ_lt_succ h⟩) }
-
-def Configuration.move {k : Nat} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (moves : Fin (k + 1) → Movement) : Configuration k S Γ :=
-  { conf with tapes := fun i => (conf.tapes i).move (moves i) }
-
--- Simp lemmas for Configuration operations
-@[simp] theorem Configuration.setState_state {k : Nat} {S} {Γ} (conf : Configuration k S Γ) (s : S) :
-  (conf.setState s).state = s := rfl
-
-@[simp] theorem Configuration.setState_tapes {k : Nat} {S} {Γ} (conf : Configuration k S Γ) (s : S) :
-  (conf.setState s).tapes = conf.tapes := rfl
-
-@[simp] theorem Configuration.setState_same {k : Nat} {S} {Γ} (conf : Configuration k S Γ) :
-  conf.setState conf.state = conf := rfl
-
-@[simp] theorem Configuration.write_state {k : Nat} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (writes : Fin k → Γ) :
-  (conf.write writes).state = conf.state := rfl
-
-@[simp] theorem Configuration.move_state {k : Nat} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (moves : Fin (k + 1) → Movement) :
-  (conf.move moves).state = conf.state := rfl
-
-@[simp] theorem Configuration.write_tapes_zero {k : Nat} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (writes : Fin k → Γ) :
-  (conf.write writes).tapes 0 = conf.tapes 0 := rfl
-
-@[simp] theorem Configuration.move_tapes {k : Nat} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (moves : Fin (k + 1) → Movement) (i : Fin (k + 1)) :
-  ((conf.move moves).tapes i) = (conf.tapes i).move (moves i) := rfl
+  ∑ i, (conf.tapes i).size
 
 def Transition.step {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Configuration k S Γ × Option Γ :=
-  let readSymbols := fun i => (conf.tapes i).head
-  let (newState, writeSymbols, output, moves) := σ conf.state readSymbols
-  let newConf := {
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Configuration k S Γ :=
+  let (newState, writeSymbols, moves) := σ conf.state fun i => (conf.tapes i).head
+  {
     state := newState,
-    tapes := fun i => match i with
-      | ⟨0, _⟩ => (conf.tapes 0).move (moves ⟨0, Nat.zero_lt_succ k⟩)
-      | ⟨j + 1, h⟩ => (
-            (conf.tapes i).write
-              (writeSymbols ⟨j, Nat.lt_of_succ_lt_succ h⟩)
-          ).move (moves i)
+    tapes := fun i => ((conf.tapes i).write (writeSymbols i)).move (moves i)
   }
-  (newConf, output)
+
+def Transition.n_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) :
+  Configuration k S Γ :=
+  match n with
+  | 0 => conf
+  | Nat.succ m => σ.step (σ.n_steps conf m)
+
+theorem n_steps_addition {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) (m n : Nat) :
+  σ.n_steps conf (n + m) = σ.n_steps (σ.n_steps conf n) m := by
+  induction m with
+  | zero => simp [Transition.n_steps]
+  | succ m ih => simp [Transition.n_steps, ih]
 
 def TM.initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
   (tm : TM k S Γ) (input : List Γ) : Configuration k S Γ :=
@@ -163,62 +111,43 @@ def TM.initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
   let emptyTape := Tape.fromInput []
   { state := tm.startState, tapes := fun i => if i.val = 0 then firstTape else emptyTape }
 
-lemma inert_does_not_change_configuration {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ)
-  (h_inert : is_inert σ conf.state (fun i => (conf.tapes i).head)):
-  let (newConf, output) := σ.step conf
-  newConf = conf ∧ output = none := by
-  unfold is_inert at h_inert
-  simp [Transition.step, h_inert]
-  simp_all only
-  -- here we have the goal { state := conf.state, tapes := ... }
 
-  sorry
+-- theorem tm_space_of_initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
+--   (tm : TM k S Γ) (input : List Γ) :
+--   (TM.initial_configuration tm input).space = k := by
+--   calc
+--     (TM.initial_configuration tm input).space
+--     _ = ∑ i, ((TM.initial_configuration tm input).work_tapes i).size := rfl
+--     _ = ∑ i: Fin k, ((Tape.fromInput []) : Tape Γ).size :=
+--         by simp [TM.initial_configuration, Configuration.work_tapes]
+--     _ = k := by simp
 
-theorem tm_space_of_initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
-  (tm : TM k S Γ) (input : List Γ) :
-  (TM.initial_configuration tm input).space = k := by
-  calc
-    (TM.initial_configuration tm input).space
-    _ = ∑ i, ((TM.initial_configuration tm input).work_tapes i).size := rfl
-    _ = ∑ i: Fin k, ((Tape.fromInput []) : Tape Γ).size :=
-        by simp [TM.initial_configuration, Configuration.work_tapes]
-    _ = k := by simp
+-- TOOD At some point we need the statement that we do not change the state
+-- after reaching the accept or reject state.
 
-def TM.run_for_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
-  (tm : TM k S Γ) (conf : Configuration k S Γ) (steps : ℕ) : Configuration k S Γ × List Γ :=
-  match steps with
-  | 0 => (conf, [])
-  | Nat.succ n =>
-    let (conf, output_word) := TM.run_for_steps tm conf n
-    let (newConf, output_char) := tm.transition.step conf
-    (newConf, match output_char with
-      | none => output_word
-      | some o => output_word ++ [o])
+-- def TM.run_on_input_for_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+--   (tm : TM k S Γ) (input : List Γ) (steps : ℕ) : Configuration k S Γ :=
+--   tm.transition.n_steps (TM.initial_configuration tm input) steps
 
-def TM.run_on_input_for_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
-  (tm : TM k S Γ) (input : List Γ) (steps : ℕ) : Configuration k S Γ × List Γ :=
-  tm.run_for_steps (TM.initial_configuration tm input) steps
+-- def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
+--   (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
+--   let (conf, output') := tm.run_on_input_for_steps input t
+--   output = output' ∧ conf.state = tm.acceptState ∧ conf.space = s
 
-def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
-  (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
-  let (conf, output') := tm.run_on_input_for_steps input t
-  output = output' ∧ conf.state = tm.acceptState ∧ conf.space = s
+-- def TM.runs_in_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
+--   (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
+--   ∃ t' ≤ t,
+--   let (conf, output') := tm.run_on_input_for_steps input t'
+--   output = output' ∧ conf.state = tm.acceptState ∧ conf.space ≤ s
 
-def TM.runs_in_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
-  (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
-  ∃ t' ≤ t,
-  let (conf, output') := tm.run_on_input_for_steps input t'
-  output = output' ∧ conf.state = tm.acceptState ∧ conf.space ≤ s
+-- def computable_in_time_and_space {Γ} [Inhabited Γ]
+--   (f : List Γ → List Γ) (t : Nat → Nat) (s : Nat → Nat) : Prop :=
+--   ∃ (k : Nat) (st : Nat) (S : Finset (Fin st)) (tm : TM k S Γ),
+--     ∀ input, tm.runs_in_time_and_space input (f input) (t input.length) (s input.length)
 
-def computable_in_time_and_space {Γ} [Inhabited Γ]
-  (f : List Γ → List Γ) (t : Nat → Nat) (s : Nat → Nat) : Prop :=
-  ∃ (k : Nat) (st : Nat) (S : Finset (Fin st)) (tm : TM k S Γ),
-    ∀ input, tm.runs_in_time_and_space input (f input) (t input.length) (s input.length)
-
--- TODO maybe force dyadic encoding so that the bounds make sense?
--- or express the bounds in terms of log of the input?
-def nat_function_computable_in_time_and_space (f : ℕ → ℕ) (t : ℕ → ℕ) (s : ℕ → ℕ) : Prop :=
-  ∃ (encoder : ℕ → List Bool) (decoder : List Bool → ℕ) (_ : ∀ n, decoder (encoder n) = n),
-  ∃ (k : Nat) (st : Nat) (S : Finset (Fin st)) (tm : TM k S Bool),
-  ∀ n, tm.runs_in_time_and_space (encoder n) (encoder (f n)) (t n) (s n)
+-- -- TODO maybe force dyadic encoding so that the bounds make sense?
+-- -- or express the bounds in terms of log of the input?
+-- def nat_function_computable_in_time_and_space (f : ℕ → ℕ) (t : ℕ → ℕ) (s : ℕ → ℕ) : Prop :=
+--   ∃ (encoder : ℕ → List Bool) (decoder : List Bool → ℕ) (_ : ∀ n, decoder (encoder n) = n),
+--   ∃ (k : Nat) (st : Nat) (S : Finset (Fin st)) (tm : TM k S Bool),
+--   ∀ n, tm.runs_in_time_and_space (encoder n) (encoder (f n)) (t n) (s n)

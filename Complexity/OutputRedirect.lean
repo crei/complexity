@@ -20,8 +20,7 @@ namespace OutputRedirect
 def redirect_output {k : Nat} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Q]
     (tm : TM k Q Γ) : TM (k + 1) Q Γ where
   transition σ symbols_read :=
-    -- Read the first k+1 symbols (input + k work tapes, ignoring the output tape)
-    let tm_symbols : Fin (k + 1) → Γ := fun i => symbols_read (Fin.castSucc i)
+    let tm_symbols : Fin k → Γ := fun i => symbols_read (Fin.castSucc i)
     let (q', writes, output, moves) := tm.transition σ tm_symbols
     -- Extend writes to k+1 tapes
     let extended_writes : Fin (k + 1) → Γ := fun i =>
@@ -32,9 +31,9 @@ def redirect_output {k : Nat} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Q]
         match output with
         | some c => c
         | none => default
-    -- Extend moves to k+2 tapes (input + k+1 work tapes)
-    let extended_moves : Fin (k + 1 + 1) → Movement := fun i =>
-      if h : i.val < k + 1 then
+    -- Extend moves to k+1 tapes
+    let extended_moves : Fin (k + 1) → Movement := fun i =>
+      if h : i.val < k then
         moves ⟨i.val, h⟩
       else
         -- Move the output tape right if we wrote something
@@ -45,6 +44,7 @@ def redirect_output {k : Nat} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Q]
   startState := tm.startState
   acceptState := tm.acceptState
   rejectState := tm.rejectState
+  inert_after_accept := by aesop?
 
 /-- The index of the output tape in the redirected machine -/
 def output_tape_idx (k : Nat) : Fin (k + 1 + 1) :=
