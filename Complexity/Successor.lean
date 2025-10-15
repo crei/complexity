@@ -20,14 +20,14 @@ def succ_transition : Transition 1 (Fin 4) BlankChar :=
     match state with
     -- we still need to add one (initially or due to carry)
     | 0 => match symbols 0 with
-      | ' ' => (2, fun _ => '1', fun _ => .right)
-      | '1' => (1, fun _ => '2', fun _ => .right)
-      | '2' => (0, fun _ => '1', fun _ => .right)
-      | c => (0, fun _ => c, fun _ => .right) -- should not happen
+      | ' ' => (2, fun _ => ('1', some .right))
+      | '1' => (1, fun _ => ('2', some .right))
+      | '2' => (0, fun _ => ('1', some .right))
+      | c => (0, fun _ => (c, some .right)) -- should not happen
     -- nothing to add, only copy input to output
-    | 1 => (if symbols 0 = ' ' then 2 else state, symbols, fun _ => Movement.right)
+    | 1 => (if symbols 0 = ' ' then 2 else state, fun i => (symbols i, some .right))
     -- finished
-    | st => (st, symbols, fun _ => .right)
+    | st => (st, fun i => (symbols i, some .right))
 
 -- A Turing machine that computes the successor of a
 -- reversely encoded dyadic number

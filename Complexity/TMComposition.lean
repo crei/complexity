@@ -29,11 +29,11 @@ def do_after {k : Nat} {Q1 Q2 Γ : Type*}
           let ⟨q', rest⟩ := σ₁ q1 symbols_read
           (CombinedState.first q', rest)
     | .second q2 =>
-        let (q2', writes, moves) := σ₂ q2 symbols_read
-        (CombinedState.second q2', writes, moves)
+        let (q2', ops) := σ₂ q2 symbols_read
+        (CombinedState.second q2', ops)
 
 def to_combined_configuration {k : Nat} {Q1 Q2 Γ : Type*}
-    [Coe Q1 Q2]
+    [Inhabited Γ] [Coe Q1 Q2]
     (conf : Configuration k Q1 Γ) :
     Configuration k Q2 Γ :=
   { state := conf.state, tapes := conf.tapes }

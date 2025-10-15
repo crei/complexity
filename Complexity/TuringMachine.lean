@@ -1,94 +1,32 @@
 import Mathlib
 
-inductive Movement
-  | left
-  | right
-  | stay
-
 universe u v
 
 -- Alias for the transition function type
 abbrev Transition (k : Nat) (Q : Type u) (Γ : Type v) :=
-  Q → (Fin k → Γ) → Q × ((Fin k) → Γ) × ((Fin k) → Movement)
+  Q → (Fin k → Γ) → Q × ((Fin k) → (Γ × Option Turing.Dir))
 
 structure TM (k : Nat) Q Γ [Inhabited Γ] where
   transition : Transition k Q Γ
   startState : Q
   stopState : Q
 
-structure Tape Γ where
-  left : List Γ
-  head : Γ -- The head is pointing at this symbol
-  right : List Γ
-
--- Actually: blank should not be part of input!
-@[simp]
-def Tape.fromInput {Γ : Type u} (input : List Γ) [Inhabited Γ] : Tape Γ :=
-  match input with
-    | [] => { left := [], head := default, right := [] }
-    | h :: t => { left := [], head := h, right := t }
-
-@[inline]
-def takeFromListOr {Γ : Type u} [Inhabited Γ] (l : List Γ) : Γ × List Γ :=
-  match l with
-    | [] => (default, [])
-    | h :: t => (h, t)
-
-def Tape.move {Γ : Type u} [Inhabited Γ] (τ : Tape Γ) (m : Movement) : Tape Γ :=
-  match m with
-  | .stay => τ
-  | .right =>
-      let (h, t) := takeFromListOr τ.right
-      { left := τ.head :: τ.left, head := h, right := t }
-  | .left =>
-      let (h, t) := takeFromListOr τ.left
-      { left := t, head := h, right := τ.head :: τ.right }
-
-def Tape.write {Γ : Type u} (τ : Tape Γ) (symbol : Γ) : Tape Γ :=
-  { τ with head := symbol }
-
-@[simp]
-def Tape.size {Γ : Type u} (τ : Tape Γ) : Nat :=
-  τ.left.length + 1 + τ.right.length
-
-@[simp] theorem Tape.move_stay {Γ : Type*} [Inhabited Γ] (t : Tape Γ) :
-  t.move Movement.stay = t := rfl
-
-@[simp] theorem Tape.write_same {Γ : Type*} (t : Tape Γ) :
-  t.write t.head = t := by rfl
-
-example {Γ : Type u} (τ : Tape Γ) : τ.size ≥ 1 := by
-  simp [Tape.size]
-  linarith
-
-theorem move_at_most_one_space {Γ : Type u} [Inhabited Γ]
-  (τ : Tape Γ)
-  (m : Movement) :
-  (τ.move m).size ≤ τ.size + 1 := by
-  cases m
-  · simp [Tape.move, Tape.size]
-    cases τ.left <;> simp [takeFromListOr] <;> linarith
-  · simp [Tape.move, Tape.size]
-    cases τ.right <;> simp [takeFromListOr]; linarith
-  · simp [Tape.move, Tape.size]
-
-structure Configuration (k : Nat) S Γ where
+structure Configuration (k : Nat) S Γ [Inhabited Γ] where
   state : S
-  tapes : Fin k → Tape Γ
+  tapes : Fin k → Turing.Tape Γ
 
--- We also count the input tape.
--- TODO later define a different space measure that does not count the input
--- or output tape if the input tape is not written to and the output tape
--- is never read from.
-def Configuration.space {k : Nat} {S} {Γ} (conf : Configuration k S Γ) : Nat :=
-  ∑ i, (conf.tapes i).size
+def performTapeOps {Γ} [Inhabited Γ]
+  (tape : Turing.Tape Γ) (symbol : Γ) (move : Option Turing.Dir) : Turing.Tape Γ :=
+  match move with
+  | none => tape.write symbol
+  | some d => (tape.write symbol).move d
 
 def Transition.step {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) : Configuration k S Γ :=
-  let (newState, writeSymbols, moves) := σ conf.state fun i => (conf.tapes i).head
+  let (newState, tapeOps) := σ conf.state fun i => (conf.tapes i).head
   {
     state := newState,
-    tapes := fun i => ((conf.tapes i).write (writeSymbols i)).move (moves i)
+    tapes := fun i => performTapeOps (conf.tapes i) (tapeOps i).1 (tapeOps i).2
   }
 
 def Transition.n_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
@@ -107,9 +45,8 @@ theorem n_steps_addition {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
 
 def TM.initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
   (tm : TM k S Γ) (input : List Γ) : Configuration k S Γ :=
-  let firstTape := Tape.fromInput input
-  let emptyTape := Tape.fromInput []
-  { state := tm.startState, tapes := fun i => if i.val = 0 then firstTape else emptyTape }
+  let firstTape := Turing.Tape.mk₁ input
+  { state := tm.startState, tapes := fun i => if i.val = 0 then firstTape else default }
 
 
 -- theorem tm_space_of_initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
