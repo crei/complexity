@@ -25,9 +25,11 @@ def succ_transition : Transition 1 (Fin 4) BlankChar :=
       | '2' => (0, fun _ => ('1', some .right))
       | c => (0, fun _ => (c, some .right)) -- should not happen
     -- nothing to add, only copy input to output
-    | 1 => (if symbols 0 = ' ' then 2 else state, fun i => (symbols i, some .right))
+    | 1 => match symbols 0 with
+      | ' ' => (2, fun i => (symbols i, none))
+      | _ => (1, fun i => (symbols i, some .right))
     -- finished
-    | st => (st, fun i => (symbols i, some .right))
+    | st => (st, fun i => (symbols i, none))
 
 -- A Turing machine that computes the successor of a
 -- reversely encoded dyadic number
@@ -37,41 +39,96 @@ def succ_tm : TM 1 (Fin 4) BlankChar := {
   stopState := 2
 }
 
--- theorem state_1_steps_tape
---   (conf : Configuration 1 (Fin 4) BlankChar)
---   (head : BlankChar)
---   (remaining : List BlankChar)
---   (hstate : conf.state = 1)
---   (remaining_not_blank : ' ' ∉ remaining)
---   (head_not_blank : head ≠ ' ')
---   (h_head : head = (conf.tapes 0).head)
---   (h_remaining : remaining = (conf.tapes 0).right) :
---   succ_transition.n_steps conf (remaining.length + 1) = {
---     state := 1,
---     tapes := fun _ => {
---        left := (remaining.reverse) ++ (head :: (conf.tapes 0).left),
---        head := ' ',
---        right := []
---     }
---   } := by
---   induction remaining with
---   | nil =>
---     simp;
---     simp [Transition.n_steps, Transition.step, succ_transition, hstate, h_head, h_remaining]
---     constructor
---     rw [← h_head]
---     exact head_not_blank
---     simp [Tape.move, takeFromListOr, h_remaining]
+theorem listblank_cons_default_to_empty {Γ} [Inhabited Γ] :
+  (Turing.ListBlank.mk [default] : Turing.ListBlank Γ) = Turing.ListBlank.mk [] := by
+  have h2 : Turing.BlankRel ([default] : List Γ) [] := by
+    unfold Turing.BlankRel; right; use 1; simp
+  apply Quotient.sound
+  exact h2
+
+@[simp]
+theorem listblank_all_blank_is_empty {Γ} [Inhabited Γ]
+  (list : List Γ)
+  (all_empty : ∀ c ∈ list, c = default) :
+  Turing.ListBlank.mk list = Turing.ListBlank.mk [] := by
+  induction list with
+  | nil => rfl
+  | cons hd tl ih =>
+    have : hd = default := all_empty hd (by simp)
+    rw [← Turing.ListBlank.cons_mk, ih (fun c hc => all_empty c (by simp [hc])), this]
+    exact listblank_cons_default_to_empty
+
+lemma copy_step
+  (conf : Configuration 1 (Fin 4) BlankChar)
+  (h_state : conf.state = 1)
+  (h_head : (conf.tapes 0).head ≠ ' ') :
+  let conf' := succ_transition.step conf
+  (conf'.tapes 0).left = (conf.tapes 0).left.cons (conf.tapes 0).head := by
+  simp [Transition.step, succ_transition, h_state, Turing.Tape.move]
+
+lemma copy_last_step
+  (conf : Configuration 1 (Fin 4) BlankChar)
+  (hstate : conf.state = 1)
+  (h_head : (conf.tapes 0).head = ' ') :
+  let conf' := succ_transition.step conf
+  conf'.state = 2 ∧
+  (conf'.tapes 0).left = (conf.tapes 0).left := by
+  simp [Transition.step, succ_transition, hstate, h_head]
+
+lemma copy_steps
+  (conf : Configuration 1 (Fin 4) BlankChar)
+  (h_state : conf.state = 1)
+  (remaining : List BlankChar)
+  (h_remaining : Turing.ListBlank.mk remaining = (conf.tapes 0).right₀)
+  (remaining_non_empty : ∀ c ∈ remaining, c ≠ ' ') :
+  let conf' := succ_transition.n_steps conf remaining.length
+  conf'.state = 2 ∧
+  (conf'.tapes 0).left = Turing.ListBlank.append remaining.reverse (conf.tapes 0).left ∧
+  (conf'.tapes 0).right = Turing.ListBlank.mk [] := by
+  induction remaining with
+  | nil =>
+    have h_head : (conf.tapes 0).head = ' ' := by
+      sorry
+    sorry
+  | cons c cs ih => sorry
+
+
+theorem state_1_steps_tape
+  (conf : Configuration 1 (Fin 4) BlankChar)
+  (remaining : List BlankChar)
+  (hstate : conf.state = 1)
+  (remaining_not_blank : ' ' ∉ remaining)
+  (h_remaining : Turing.ListBlank.mk remaining = (conf.tapes 0).right₀) :
+  let conf' := succ_transition.n_steps conf (remaining.length + 1)
+  conf'.state = 2 ∧
+  -- (conf'.tapes 0).left₀ = (Turing.ListBlank.mk (head :: remaining.reverse)).cons (conf.tapes 0).left₀ ∧
+  (conf'.tapes 0).right = Turing.ListBlank.mk [] := by
+  induction remaining with
+  | nil =>
+    simp [Transition.n_steps]
+    simp [Transition.step]
+    simp [succ_transition]
 
 
 
---     simp [h_head, head_not_blank]
+
+    intro conf'
+
+    simp [h_remaining]
+    constructor
+    rw [← h_head]
+    exact head_not_blank
+    simp [Tape.move, takeFromListOr, h_remaining]
 
 
 
---     simp [TM.n_steps, succ_tm, hstate, TM.step, remaining_not_blank, h_tape]
---     sorry
---   | cons c cs ih => sorry
+    simp [h_head, head_not_blank]
+
+
+
+    simp [TM.n_steps, succ_tm, hstate, TM.step, remaining_not_blank, h_tape]
+    sorry
+  | cons c cs ih => sorry
 
 
 

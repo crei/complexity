@@ -21,6 +21,25 @@ def performTapeOps {Γ} [Inhabited Γ]
   | none => tape.write symbol
   | some d => (tape.write symbol).move d
 
+@[simp]
+lemma perform_no_move {Γ} [Inhabited Γ]
+  (tape : Turing.Tape Γ) (symbol : Γ) :
+  performTapeOps tape symbol none = tape.write symbol := by
+  simp [performTapeOps]
+
+@[simp]
+lemma perform_write_same_no_move {Γ} [Inhabited Γ]
+  (tape : Turing.Tape Γ) (symbol : Γ) (h_same_symbol : tape.head = symbol) :
+  performTapeOps tape symbol none = tape := by
+  subst h_same_symbol
+  simp_all only [perform_no_move, Turing.Tape.write_self]
+
+@[simp]
+lemma perform_write_same_move {Γ} [Inhabited Γ]
+  (tape : Turing.Tape Γ) (symbol : Γ) (dir : Turing.Dir) (h_same_symbol : tape.head = symbol) :
+  performTapeOps tape symbol (some dir) = tape.move dir := by
+  subst h_same_symbol; rfl
+
 def Transition.step {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) : Configuration k S Γ :=
   let (newState, tapeOps) := σ conf.state fun i => (conf.tapes i).head
