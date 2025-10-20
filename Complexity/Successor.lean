@@ -46,24 +46,34 @@ theorem listblank_cons_default_to_empty {Γ} [Inhabited Γ] :
   apply Quotient.sound
   exact h2
 
-@[simp]
 theorem listblank_all_blank_is_empty {Γ} [Inhabited Γ]
   (list : List Γ)
-  (all_empty : ∀ c ∈ list, c = default) :
+  (all_empty : ∀ i, list.getI i = default) :
   Turing.ListBlank.mk list = Turing.ListBlank.mk [] := by
-  induction list with
-  | nil => rfl
-  | cons hd tl ih =>
-    have : hd = default := all_empty hd (by simp)
-    rw [← Turing.ListBlank.cons_mk, ih (fun c hc => all_empty c (by simp [hc])), this]
-    exact listblank_cons_default_to_empty
+  apply Turing.ListBlank.ext
+  simp [all_empty]
+
+theorem listblank_is_empty_all_blank {Γ} [Inhabited Γ]
+  (list : Turing.ListBlank Γ)
+  (is_empty : list = Turing.ListBlank.mk []) :
+  ∀ i, list.nth i = default := by
+  intro i
+  subst is_empty
+  simp_all only [List.getI_nil, Turing.ListBlank.nth_mk]
+
+lemma cons_is_empty {Γ} [Inhabited Γ]
+  (c : Γ)
+  (list : Turing.ListBlank Γ)
+  (is_empty : Turing.ListBlank.cons c list = Turing.ListBlank.mk []) :
+  c = default := by
+  simpa using listblank_is_empty_all_blank (Turing.ListBlank.cons c list ) is_empty 0
 
 lemma copy_step
   (conf : Configuration 1 (Fin 4) BlankChar)
   (h_state : conf.state = 1)
   (h_head : (conf.tapes 0).head ≠ ' ') :
-  let conf' := succ_transition.step conf
-  (conf'.tapes 0).left = (conf.tapes 0).left.cons (conf.tapes 0).head := by
+  ((succ_transition.step conf).tapes 0).left
+    = (conf.tapes 0).left.cons (conf.tapes 0).head := by
   simp [Transition.step, succ_transition, h_state, Turing.Tape.move]
 
 lemma copy_last_step
@@ -81,56 +91,22 @@ lemma copy_steps
   (remaining : List BlankChar)
   (h_remaining : Turing.ListBlank.mk remaining = (conf.tapes 0).right₀)
   (remaining_non_empty : ∀ c ∈ remaining, c ≠ ' ') :
-  let conf' := succ_transition.n_steps conf remaining.length
+  let conf' := succ_transition.n_steps conf (remaining.length + 1)
   conf'.state = 2 ∧
-  (conf'.tapes 0).left = Turing.ListBlank.append remaining.reverse (conf.tapes 0).left ∧
-  (conf'.tapes 0).right = Turing.ListBlank.mk [] := by
+  (conf'.tapes 0).left = Turing.ListBlank.append remaining.reverse (conf.tapes 0).left
+  -- TODO ∧ (conf'.tapes 0).right = Turing.ListBlank.mk []
+  := by
   induction remaining with
   | nil =>
     have h_head : (conf.tapes 0).head = ' ' := by
-      sorry
-    sorry
-  | cons c cs ih => sorry
-
-
-theorem state_1_steps_tape
-  (conf : Configuration 1 (Fin 4) BlankChar)
-  (remaining : List BlankChar)
-  (hstate : conf.state = 1)
-  (remaining_not_blank : ' ' ∉ remaining)
-  (h_remaining : Turing.ListBlank.mk remaining = (conf.tapes 0).right₀) :
-  let conf' := succ_transition.n_steps conf (remaining.length + 1)
-  conf'.state = 2 ∧
-  -- (conf'.tapes 0).left₀ = (Turing.ListBlank.mk (head :: remaining.reverse)).cons (conf.tapes 0).left₀ ∧
-  (conf'.tapes 0).right = Turing.ListBlank.mk [] := by
-  induction remaining with
-  | nil =>
+      unfold Turing.Tape.right₀ at h_remaining
+      apply cons_is_empty (conf.tapes 0).head (conf.tapes 0).right (by simp only [h_remaining])
     simp [Transition.n_steps]
-    simp [Transition.step]
-    simp [succ_transition]
-
-
-
-
-    intro conf'
-
-    simp [h_remaining]
-    constructor
-    rw [← h_head]
-    exact head_not_blank
-    simp [Tape.move, takeFromListOr, h_remaining]
-
-
-
-    simp [h_head, head_not_blank]
-
-
-
-    simp [TM.n_steps, succ_tm, hstate, TM.step, remaining_not_blank, h_tape]
+    exact copy_last_step conf h_state h_head
+  | cons c cs ih =>
+    unfold Transition.n_steps
+    let x := copy_step (succ_transition.n_steps conf (c :: cs).length) sorry sorry
     sorry
-  | cons c cs ih => sorry
-
-
 
 
 -- TODO we also need a lemma that models the principle of addition that is
