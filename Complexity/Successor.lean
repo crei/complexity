@@ -72,41 +72,69 @@ lemma copy_step
   (conf : Configuration 1 (Fin 4) BlankChar)
   (h_state : conf.state = 1)
   (h_head : (conf.tapes 0).head ≠ ' ') :
-  ((succ_transition.step conf).tapes 0).left
-    = (conf.tapes 0).left.cons (conf.tapes 0).head := by
+  (succ_transition.step conf).state = 1 ∧
+  (succ_transition.step conf).tapes 0 = (conf.tapes 0).move .right := by
   simp [Transition.step, succ_transition, h_state, Turing.Tape.move]
+
+lemma copy_steps_multi
+  (conf : Configuration 1 (Fin 4) BlankChar)
+  (h_state : conf.state = 1)
+  (remaining_length : ℕ)
+  (h_remaining : ∀ j < remaining_length, (conf.tapes 0).nth j ≠ ' ') :
+  -- TODO do this without defining conf'?
+  let conf' := succ_transition.n_steps conf remaining_length
+  conf'.state = 1 ∧
+  conf'.tapes 0 = (Turing.Tape.move .right)^[remaining_length] (conf.tapes 0) := by
+  induction remaining_length with
+  | zero => exact ⟨h_state, rfl⟩
+  | succ m ih =>
+    unfold Transition.n_steps
+    let conf_pre := succ_transition.n_steps conf m
+    have ih_cond : ∀ j < m, (conf.tapes 0).nth j ≠ ' ' := by
+      intro j hj
+      apply h_remaining
+      omega
+    have pre_state : conf_pre.state = 1 := (ih ih_cond).left
+    have pre_tape : conf_pre.tapes 0 = (Turing.Tape.move .right)^[m] (conf.tapes 0) :=
+      (ih ih_cond).right
+    intro conf'
+    have h: conf' = succ_transition.step conf_pre := rfl
+    have h_head : (conf_pre.tapes 0).head ≠ ' ' := by
+      calc (conf_pre.tapes 0).head
+         = (conf.tapes 0).nth m := by simp [Turing.Tape.move_right_n_head, pre_tape]
+        _ ≠ ' ' := h_remaining m (by simp)
+    simp [h, pre_tape, copy_step conf_pre pre_state h_head, Function.iterate_succ]
+    rw [Function.Commute.self_iterate (Turing.Tape.move .right) m]
 
 lemma copy_last_step
   (conf : Configuration 1 (Fin 4) BlankChar)
   (hstate : conf.state = 1)
   (h_head : (conf.tapes 0).head = ' ') :
-  let conf' := succ_transition.step conf
-  conf'.state = 2 ∧
-  (conf'.tapes 0).left = (conf.tapes 0).left := by
+  (succ_transition.step conf).state = 2 ∧
+  (succ_transition.step conf).tapes 0 = conf.tapes 0 := by
   simp [Transition.step, succ_transition, hstate, h_head]
 
 lemma copy_steps
   (conf : Configuration 1 (Fin 4) BlankChar)
   (h_state : conf.state = 1)
-  (remaining : List BlankChar)
-  (h_remaining : Turing.ListBlank.mk remaining = (conf.tapes 0).right₀)
-  (remaining_non_empty : ∀ c ∈ remaining, c ≠ ' ') :
-  let conf' := succ_transition.n_steps conf (remaining.length + 1)
+  (remaining_length : ℕ) -- TODO use "find"
+  (h_remaining : ∀ j < remaining_length, (conf.tapes 0).nth j ≠ ' ')
+  (h_blank : (conf.tapes 0).nth remaining_length = ' ') :
+  let conf' := succ_transition.n_steps conf (remaining_length + 1)
   conf'.state = 2 ∧
-  (conf'.tapes 0).left = Turing.ListBlank.append remaining.reverse (conf.tapes 0).left
-  -- TODO ∧ (conf'.tapes 0).right = Turing.ListBlank.mk []
-  := by
-  induction remaining with
-  | nil =>
-    have h_head : (conf.tapes 0).head = ' ' := by
-      unfold Turing.Tape.right₀ at h_remaining
-      apply cons_is_empty (conf.tapes 0).head (conf.tapes 0).right (by simp only [h_remaining])
-    simp [Transition.n_steps]
-    exact copy_last_step conf h_state h_head
-  | cons c cs ih =>
-    unfold Transition.n_steps
-    let x := copy_step (succ_transition.n_steps conf (c :: cs).length) sorry sorry
-    sorry
+  conf'.tapes 0 = (Turing.Tape.move .right)^[remaining_length] (conf.tapes 0) := by
+  let conf_pre := succ_transition.n_steps conf remaining_length
+  have pre_state : conf_pre.state = 1 := by
+    simp [copy_steps_multi conf h_state remaining_length h_remaining, conf_pre]
+  have pre_tape : conf_pre.tapes 0 =
+    (Turing.Tape.move .right)^[remaining_length] (conf.tapes 0) :=
+    (copy_steps_multi conf h_state remaining_length h_remaining).right
+  rw [Transition.n_steps]
+  intro conf'
+  have h_conf_pre : conf' = succ_transition.step conf_pre := rfl
+  have h_head : (conf_pre.tapes 0).head = ' ' := by
+    simp [Turing.Tape.move_right_n_head, pre_tape, h_blank]
+  simp [copy_last_step conf_pre pre_state h_head, conf', pre_tape, h_conf_pre]
 
 
 -- TODO we also need a lemma that models the principle of addition that is

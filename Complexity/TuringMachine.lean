@@ -62,6 +62,22 @@ theorem n_steps_addition {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
   | zero => simp [Transition.n_steps]
   | succ m ih => simp [Transition.n_steps, ih]
 
+@[simp]
+lemma single_step {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) :
+  σ.n_steps conf 1 = σ.step conf := by
+  rfl
+
+--- In contrast to `Transition.n_steps`, extracts the first step and not the last.
+@[simp]
+theorem n_steps_first {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) :
+  σ.n_steps (σ.step conf) n = σ.n_steps conf (n + 1) := by
+  calc σ.n_steps (σ.step conf) n
+      = σ.n_steps (σ.n_steps conf 1) n := by rfl
+      _ = σ.n_steps conf (1 + n) := by simp [n_steps_addition]
+      _ = σ.n_steps conf (n + 1) := by rw [Nat.add_comm 1 n]
+
 def TM.initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
   (tm : TM k S Γ) (input : List Γ) : Configuration k S Γ :=
   let firstTape := Turing.Tape.mk₁ input
