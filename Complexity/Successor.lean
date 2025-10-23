@@ -3,18 +3,6 @@ import Complexity.Dyadic
 
 import Mathlib
 
--- Custom Char type with ' ' as default (instead of 'A')
-def BlankChar := Char
-
-instance : Inhabited BlankChar where
-  default := ' '
-
-instance : DecidableEq BlankChar := inferInstanceAs (DecidableEq Char)
-
--- Coercion from Char to BlankChar
-instance : Coe Char BlankChar where
-  coe c := c
-
 def succ_transition : Transition 1 (Fin 2) BlankChar :=
   fun state symbols =>
     match state with
@@ -60,8 +48,8 @@ lemma succ_step (n : ℕ)
 -- then whet in reaches state 1, it will have the reverse dyadic encoding of n + 1 on the tape.
 
 
-theorem succ_semantics (n : ℕ) :
-  succ_tm.runs_in_time (rev_dya n) (rev_dya (n + 1)) (rev_dya n).length.succ := sorry
+-- theorem succ_semantics (n : ℕ) :
+--   succ_tm.runs_in_time (rev_dya n) (rev_dya (n + 1)) (rev_dya n).length.succ := sorry
 
 
 theorem listblank_cons_default_to_empty {Γ} [Inhabited Γ] :

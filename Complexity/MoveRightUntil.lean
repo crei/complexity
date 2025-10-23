@@ -3,18 +3,6 @@ import Complexity.Dyadic
 
 import Mathlib
 
--- Custom Char type with ' ' as default (instead of 'A')
-def BlankChar := Char
-
-instance : Inhabited BlankChar where
-  default := ' '
-
-instance : DecidableEq BlankChar := inferInstanceAs (DecidableEq Char)
-
--- Coercion from Char to BlankChar
-instance : Coe Char BlankChar where
-  coe c := c
-
 --- Returns a transition function that starts in state 0,
 --- moves the head on tape `tape` right until `stop_condition` is true on
 --- the symbol read on the tape. Stays at that symbol and stops in state 1.

@@ -2,6 +2,19 @@ import Mathlib
 
 universe u v
 
+-- Custom Char type with ' ' as default (instead of 'A')
+def BlankChar := Char
+
+instance : Inhabited BlankChar where
+  default := ' '
+
+instance : DecidableEq BlankChar := inferInstanceAs (DecidableEq Char)
+
+-- Coercion from Char to BlankChar
+instance : Coe Char BlankChar where
+  coe c := c
+
+
 -- Alias for the transition function type
 abbrev Transition (k : Nat) (Q : Type u) (Γ : Type v) :=
   Q → (Fin k → Γ) → Q × ((Fin k) → (Γ × Option Turing.Dir))
