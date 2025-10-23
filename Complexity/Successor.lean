@@ -63,37 +63,32 @@ lemma succ_step_even (n : ℕ) (pref : List BlankChar) :
   rw [rev_dya_even]
   simp [succ_transition, Transition.step, Turing.Tape.mk₂, performTapeOps]
 
--- TODO
--- theorem succ_semantics' (n : ℕ) (pref : List BlankChar) :
---   succ_transition.n_steps (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya n))⟩) (n.clog 2 + 1) =
---   -- TODO the tape can also be moved by some amount
---   ⟨1, fun _ => Turing.Tape.mk₂ pref (rev_dya (n + 1))⟩ := by
---   revert pref
---   refine dyadic_induction_on n ?_ ?_ ?_
---   · intro pref; simp [Transition.step, succ_transition, Turing.Tape.mk₂, default]
---     simp [rev_dya, dyadic_encoding_reverse]
---   · intro n ih pref
---     rw [← n_steps_first, succ_step_odd]
---     simp [stop_state_inert]
---   · intro n ih pref
---     rw [← n_steps_first, succ_step_even]
---     simp [Turing.Tape.mk₂]
---     rw [← Turing.Tape.mk₂]
---     let x := ih ('1' :: pref)
---     -- TODO pull out one step and do arith with Nat.clog.
-
---     sorry
-
-
-
--- What we want to prove is:
--- For any n : ℕ, if TM starts with the tape containing the
--- reverse dyadic encoding of n,
--- then whet in reaches state 1, it will have the reverse dyadic encoding of n + 1 on the tape.
-
-
--- theorem succ_semantics (n : ℕ) :
---   succ_tm.runs_in_time (rev_dya n) (rev_dya (n + 1)) (rev_dya n).length.succ := sorry
+theorem succ_semantics' (n : ℕ) (pref : List BlankChar) :
+  ∃ shift : ℕ,
+  succ_transition.n_steps (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya n))⟩) ((n + 2).log2 + 1) =
+  ⟨1, fun _ => (Turing.Tape.move .right)^[shift] (Turing.Tape.mk₂ pref (rev_dya (n + 1)))⟩ := by
+  revert pref
+  refine dyadic_induction_on n ?_ ?_ ?_
+  · intro pref
+    use 0;
+    simp [Transition.n_steps, Transition.step, succ_transition, Turing.Tape.mk₂, default]
+    simp [rev_dya, dyadic_encoding_reverse]
+  · intro n ih pref
+    use 0
+    rw [← n_steps_first, succ_step_odd]
+    simp [stop_state_inert]
+  · intro n ih pref
+    rw [← n_steps_first, succ_step_even]
+    simp [Turing.Tape.mk₂]
+    rw [← Turing.Tape.mk₂]
+    obtain ⟨shift, ih⟩ := ih ('1' :: pref)
+    use shift + 1
+    rw [Nat.log2_def]
+    simp_all
+    unfold Turing.Tape.mk₂
+    have hn : 2 * n + 2 + 1 = 2 * (n + 1) + 1 := by ring
+    rw [hn]
+    simp [rev_dya_odd]
 
 
 theorem listblank_cons_default_to_empty {Γ} [Inhabited Γ] :
