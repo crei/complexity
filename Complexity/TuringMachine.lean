@@ -97,9 +97,25 @@ def TM.initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
 -- TOOD At some point we need the statement that we do not change the state
 -- after reaching the accept or reject state.
 
--- def TM.run_on_input_for_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
---   (tm : TM k S Γ) (input : List Γ) (steps : ℕ) : Configuration k S Γ :=
---   tm.transition.n_steps (TM.initial_configuration tm input) steps
+def tape_equiv_up_to_shift {Γ} [Inhabited Γ]
+  (t1 t2 : Turing.Tape Γ) : Prop :=
+  ∃ shift: ℤ, ∀ pos : Int, t1.nth (pos + shift) = t2.nth pos
+
+def TM.run_on_input_for_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (tm : TM k S Γ) (input : List Γ) (steps : ℕ) : Configuration k S Γ :=
+  tm.transition.n_steps (TM.initial_configuration tm input) steps
+
+-- def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
+--   (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
+--   let (conf, output') := tm.run_on_input_for_steps input t
+--   output = output' ∧ conf.state = tm.acceptState ∧ conf.space = s
+
+def TM.runs_in_exact_time {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
+  (tm : TM (k + 1) S Γ) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
+  -- TODO and actually we need that the stop state is not reached earlier.
+  let conf := tm.run_on_input_for_steps input t
+  tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ output) ∧
+  conf.state = tm.stopState
 
 -- def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
 --   (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
@@ -112,10 +128,19 @@ def TM.initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
 --   let (conf, output') := tm.run_on_input_for_steps input t'
 --   output = output' ∧ conf.state = tm.acceptState ∧ conf.space ≤ s
 
+def TM.runs_in_time {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
+  (tm : TM k.succ S Γ) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
+  ∃ t' ≤ t, tm.runs_in_exact_time input output t'
+
 -- def computable_in_time_and_space {Γ} [Inhabited Γ]
 --   (f : List Γ → List Γ) (t : Nat → Nat) (s : Nat → Nat) : Prop :=
 --   ∃ (k : Nat) (st : Nat) (S : Finset (Fin st)) (tm : TM k S Γ),
 --     ∀ input, tm.runs_in_time_and_space input (f input) (t input.length) (s input.length)
+
+-- def computable_in_time {Γ} [Inhabited Γ]
+--   (f : List Γ → List Γ) (t : Nat → Nat) : Prop :=
+--   ∃ (k : Nat) (st : Nat) (tm : TM k (Fin st) Γ),
+--     ∀ input, tm.runs_in_time input (f input) (t input.length)
 
 -- -- TODO maybe force dyadic encoding so that the bounds make sense?
 -- -- or express the bounds in terms of log of the input?
