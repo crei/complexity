@@ -13,6 +13,14 @@ def succ_transition : Transition 1 (Fin 2) BlankChar :=
       | c => (0, fun _ => (c, some .right)) -- should not happen
     | 1 => (1, (symbols ·, none))
 
+theorem stop_state_inert (tapes : Fin 1 → Turing.Tape BlankChar) (n : ℕ) :
+  succ_transition.n_steps ⟨1, tapes⟩ n = ⟨1, tapes⟩ := by
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+    unfold Transition.n_steps
+    simp [succ_transition, Transition.step, ih]
+
 -- A Turing machine that computes the successor of a
 -- reversely encoded dyadic number
 def succ_tm : TM 1 (Fin 2) BlankChar := {
@@ -24,23 +32,59 @@ def succ_tm : TM 1 (Fin 2) BlankChar := {
 def rev_dya (n : ℕ) : List BlankChar :=
   (dyadic_encoding_reverse n).map (fun x => if x then '2' else '1')
 
+@[simp]
+lemma rev_dya_zero : rev_dya 0 = [] := by
+  simp [rev_dya, dyadic_encoding_reverse]
 
+@[simp]
 lemma rev_dya_odd (n : ℕ) : rev_dya (2 * n + 1) = '1' :: rev_dya (n) := by
   simp [rev_dya, dyadic_encoding_reverse_prop_one]
 
+@[simp]
 lemma rev_dya_even (n : ℕ) : rev_dya (2 * n + 2) = '2' :: rev_dya (n) := by
   simp [rev_dya, dyadic_encoding_reverse_prop_two]
 
 
-lemma succ_step (n : ℕ)
-  (pref : List BlankChar) :
-  let σ' := succ_transition.step (⟨ 0, (fun _ => Turing.Tape.mk₂ pref (rev_dya (2 * n + 1)))⟩)
-  σ'.state = 1 ∧ σ'.tapes 0 = Turing.Tape.mk₂ pref (rev_dya (2 * n + 2)) := by
+lemma succ_step_odd (n : ℕ) (pref : List BlankChar) :
+  succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya (2 * n + 1)))⟩) =
+    ⟨1, (fun _ => Turing.Tape.mk₂ pref (rev_dya (2 * n + 2)))⟩ := by
   rw [rev_dya_odd]
   simp [succ_transition, Transition.step, Turing.Tape.mk₂]
-  rw [← Turing.ListBlank.cons_mk]
-  simp only [Turing.Tape.write_mk']
-  simp [rev_dya_even]
+
+lemma succ_step_even' (n : ℕ) (pref : List BlankChar) :
+  let σ' := succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya (2 * n + 2)))⟩)
+  σ'.state = 0 ∧ (σ'.tapes 0).move .left = Turing.Tape.mk₂ pref ('1' :: rev_dya n) := by
+  rw [rev_dya_even]
+  simp [succ_transition, Transition.step, Turing.Tape.mk₂, performTapeOps]
+
+lemma succ_step_even (n : ℕ) (pref : List BlankChar) :
+  succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya (2 * n + 2)))⟩) =
+    ⟨0, fun _ => (Turing.Tape.mk₂ pref ('1' :: rev_dya n)).move .right⟩ := by
+  rw [rev_dya_even]
+  simp [succ_transition, Transition.step, Turing.Tape.mk₂, performTapeOps]
+
+-- TODO
+-- theorem succ_semantics' (n : ℕ) (pref : List BlankChar) :
+--   succ_transition.n_steps (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya n))⟩) (n.clog 2 + 1) =
+--   -- TODO the tape can also be moved by some amount
+--   ⟨1, fun _ => Turing.Tape.mk₂ pref (rev_dya (n + 1))⟩ := by
+--   revert pref
+--   refine dyadic_induction_on n ?_ ?_ ?_
+--   · intro pref; simp [Transition.step, succ_transition, Turing.Tape.mk₂, default]
+--     simp [rev_dya, dyadic_encoding_reverse]
+--   · intro n ih pref
+--     rw [← n_steps_first, succ_step_odd]
+--     simp [stop_state_inert]
+--   · intro n ih pref
+--     rw [← n_steps_first, succ_step_even]
+--     simp [Turing.Tape.mk₂]
+--     rw [← Turing.Tape.mk₂]
+--     let x := ih ('1' :: pref)
+--     -- TODO pull out one step and do arith with Nat.clog.
+
+--     sorry
+
+
 
 -- What we want to prove is:
 -- For any n : ℕ, if TM starts with the tape containing the

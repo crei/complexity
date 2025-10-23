@@ -51,6 +51,30 @@ theorem dyadic_encoding_reverse_prop_two (n : ℕ) :
   conv => rw [dyadic_encoding_reverse]
   simp [h]
 
+@[elab_as_elim]
+theorem dyadic_induction_on {p : ℕ → Prop} (n : ℕ)
+  (h0 : p 0)
+  (h1 : ∀ n, p n → p (2 * n + 1))
+  (h2 : ∀ n, p n → p (2 * n + 2)) : p n := by
+  -- strong induction
+  refine Nat.strong_induction_on n ?_; intro n IH
+  cases n with
+  | zero => exact h0
+  | succ m =>
+    by_cases hEven : Even m.succ
+    · have he : ∃ n', m + 1 = 2 * n' + 2 := by
+        simp [Nat.even_add_one, Nat.succ_eq_add_one] at hEven
+        simp_all only [Nat.add_right_cancel_iff]
+        exact hEven
+      rcases he with ⟨n', hn'⟩
+      rw [hn']
+      exact h2 n' (IH n' (by linarith))
+    · have h2 : ∃ n', m + 1 = 2 * n' + 1 := by
+        simp_all only [Nat.not_even_iff_odd]
+        exact hEven
+      rcases h2 with ⟨n', hn'⟩
+      rw [hn']
+      exact h1 n' (IH n' (by linarith))
 
 theorem dyadic_bijective (n : ℕ) :
   dyadic_decoding (dyadic_encoding n) = n := by

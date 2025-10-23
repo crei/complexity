@@ -68,6 +68,12 @@ def Transition.n_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
   | 0 => conf
   | Nat.succ m => σ.step (σ.n_steps conf m)
 
+@[simp]
+lemma n_steps_zero {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) :
+  σ.n_steps conf 0 = conf := by
+  rfl
+
 theorem n_steps_addition {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (m n : Nat) :
   σ.n_steps conf (n + m) = σ.n_steps (σ.n_steps conf n) m := by
@@ -161,3 +167,18 @@ def TM.runs_in_time {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
 --   ∃ (encoder : ℕ → List Bool) (decoder : List Bool → ℕ) (_ : ∀ n, decoder (encoder n) = n),
 --   ∃ (k : Nat) (st : Nat) (S : Finset (Fin st)) (tm : TM k S Bool),
 --   ∀ n, tm.runs_in_time_and_space (encoder n) (encoder (f n)) (t n) (s n)
+
+
+@[simp]
+theorem Tape.write_mk'_list {Γ} [Inhabited Γ] (a b : Γ) (L : Turing.ListBlank Γ) (R : List Γ) :
+    (Turing.Tape.mk' L (Turing.ListBlank.mk (a :: R))).write b =
+      Turing.Tape.mk' L (Turing.ListBlank.mk (b :: R)) := by
+  rw [← Turing.ListBlank.cons_mk]
+  simp only [Turing.Tape.write_mk']
+  simp only [Turing.ListBlank.cons_mk]
+
+@[simp]
+theorem Tape.write_mk'empty {Γ} [Inhabited Γ] (b : Γ) (L : Turing.ListBlank Γ) :
+    (Turing.Tape.mk' L (Turing.ListBlank.mk [])).write b =
+      Turing.Tape.mk' L (Turing.ListBlank.mk [b]) := by
+  rfl
