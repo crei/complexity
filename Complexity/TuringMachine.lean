@@ -163,9 +163,11 @@ def TM.runs_in_time {k : Nat} {S} {Γ} [Inhabited Γ]
 -- TODO define space complexity
 def nat_function_computable_in_time (f : ℕ → ℕ) (t : ℕ → ℕ) : Prop :=
   ∃ (encoder : ℕ → List Bool), Function.Bijective encoder ∧
-  ∃ (k st : ℕ) (tm : TM k.succ (Fin st) (Option Bool)),
-  ∀ n, tm.runs_in_time ((encoder n).map Option.some) ((encoder (f n)).map Option.some) (t n)
-
+  ∃ (c k st : ℕ) (tm : TM k.succ (Fin st) (Option Bool)),
+  ∀ n, tm.runs_in_time
+    ((encoder n).map Option.some)
+    ((encoder (f n)).map Option.some)
+    (c * (t n.log2) + c)
 
 @[simp]
 theorem Tape.write_mk'_list {Γ} [Inhabited Γ] (a b : Γ) (L : Turing.ListBlank Γ) (R : List Γ) :
