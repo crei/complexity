@@ -63,7 +63,7 @@ lemma succ_step_even (n : ℕ) (pref : List BlankChar) :
   rw [rev_dya_even]
   simp [succ_transition, Transition.step, Turing.Tape.mk₂, performTapeOps]
 
-theorem succ_semantics' (n : ℕ) (pref : List BlankChar) :
+theorem succ_semantics (n : ℕ) (pref : List BlankChar) :
   ∃ shift : ℕ,
   succ_transition.n_steps (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya n))⟩) ((n + 2).log2 + 1) =
   ⟨1, fun _ => (Turing.Tape.move .right)^[shift] (Turing.Tape.mk₂ pref (rev_dya (n + 1)))⟩ := by
@@ -90,6 +90,17 @@ theorem succ_semantics' (n : ℕ) (pref : List BlankChar) :
     rw [hn]
     simp [rev_dya_odd]
 
+theorem succ_in_linear_time (n : ℕ) : succ_tm.runs_in_time
+    (rev_dya n)
+    (rev_dya n.succ)
+    ((n + 2).log2 + 1) := by
+  obtain ⟨shift, hstep⟩ := succ_semantics n []
+  rw [Turing.Tape.mk₂] at hstep
+  simp [TM.runs_in_time, TM.runs_in_exact_time, TM.initial_configuration]
+  use (n + 2).log2 + 1
+  simp [succ_tm, Turing.Tape.mk₁, Turing.Tape.mk₂, hstep]
+  use shift, .left;
+  simp
 
 theorem listblank_cons_default_to_empty {Γ} [Inhabited Γ] :
   (Turing.ListBlank.mk [default] : Turing.ListBlank Γ) = Turing.ListBlank.mk [] := by

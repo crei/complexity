@@ -117,11 +117,7 @@ def TM.initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
 
 def tape_equiv_up_to_shift {Γ} [Inhabited Γ]
   (t1 t2 : Turing.Tape Γ) : Prop :=
-  ∃ shift: ℤ, ∀ pos : Int, t1.nth (pos + shift) = t2.nth pos
-
-def TM.run_on_input_for_steps {k : Nat} {S} {Γ} [Inhabited Γ]
-  (tm : TM k S Γ) (input : List Γ) (steps : ℕ) : Configuration k S Γ :=
-  tm.transition.n_steps (TM.initial_configuration tm input) steps
+  ∃ shift : ℕ, ∃ dir, t2 = (Turing.Tape.move dir)^[shift] t1
 
 -- def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
 --   (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
@@ -131,7 +127,7 @@ def TM.run_on_input_for_steps {k : Nat} {S} {Γ} [Inhabited Γ]
 def TM.runs_in_exact_time {k : Nat} {S} {Γ} [Inhabited Γ]
   (tm : TM (k + 1) S Γ) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
   -- TODO and actually we need that the stop state is not reached earlier.
-  let conf := tm.run_on_input_for_steps input t
+  let conf := tm.transition.n_steps (TM.initial_configuration tm input) t
   tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ output) ∧
   conf.state = tm.stopState
 
@@ -182,3 +178,14 @@ theorem Tape.write_mk'empty {Γ} [Inhabited Γ] (b : Γ) (L : Turing.ListBlank �
     (Turing.Tape.mk' L (Turing.ListBlank.mk [])).write b =
       Turing.Tape.mk' L (Turing.ListBlank.mk [b]) := by
   rfl
+
+
+@[simp]
+theorem Tape.move_left_right_iter {Γ} [Inhabited Γ] (T : Turing.Tape Γ) (n : ℕ) :
+    (Turing.Tape.move .left)^[n] ((Turing.Tape.move .right)^[n] T) = T := by
+  induction n generalizing T with
+  | zero => rfl
+  | succ n ih =>
+    simp only [Function.iterate_succ, Function.comp_apply]
+    rw [Function.Commute.iterate_self (Turing.Tape.move Turing.Dir.left)]
+    simp [ih]
