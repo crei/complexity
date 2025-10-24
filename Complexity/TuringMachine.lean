@@ -128,7 +128,7 @@ def TM.runs_in_exact_time {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
   -- TODO and actually we need that the stop state is not reached earlier.
   let conf := tm.transition.n_steps (TM.initial_configuration tm input) t
-  tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ output) ∧
+  tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ (output.map some)) ∧
   conf.state = tm.stopState
 
 -- def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]

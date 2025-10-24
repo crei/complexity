@@ -35,47 +35,60 @@ def succ_tm : TM 1 (Fin 2) (Option OneTwo) := {
 def rev_dya (n : ℕ) : List OneTwo :=
   (dyadic_encoding_reverse n).map (fun x => if x then .two else .one)
 
+def rev_dya_option (n : ℕ) : List (Option OneTwo) :=
+  (rev_dya n).map some
+
 @[simp]
-lemma rev_dya_zero : rev_dya 0 = [] := by
-  simp [rev_dya, dyadic_encoding_reverse]
+lemma rev_dya_zero : rev_dya_option 0 = [] := by
+  simp [rev_dya_option, rev_dya, dyadic_encoding_reverse]
 
 @[simp]
 lemma rev_dya_odd (n : ℕ) : rev_dya (2 * n + 1) = .one :: rev_dya (n) := by
   simp [rev_dya, dyadic_encoding_reverse_prop_one]
 
 @[simp]
+lemma rev_dya_option_odd (n : ℕ) :
+    rev_dya_option (2 * n + 1) = (some .one) :: rev_dya_option (n) := by
+  simp [rev_dya_option]
+
+@[simp]
 lemma rev_dya_even (n : ℕ) : rev_dya (2 * n + 2) = .two :: rev_dya (n) := by
   simp [rev_dya, dyadic_encoding_reverse_prop_two]
 
+@[simp]
+lemma rev_dya_option_even (n : ℕ) :
+    rev_dya_option (2 * n + 2) = (some .two) :: rev_dya_option (n) := by
+  simp [rev_dya_option]
 
-lemma succ_step_odd (n : ℕ) (pref : List BlankChar) :
-  succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya (2 * n + 1)))⟩) =
-    ⟨1, (fun _ => Turing.Tape.mk₂ pref (rev_dya (2 * n + 2)))⟩ := by
-  rw [rev_dya_odd]
+lemma succ_step_odd (n : ℕ) (pref : List (Option OneTwo)) :
+  succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option (2 * n + 1)))⟩) =
+    ⟨1, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option (2 * n + 2)))⟩ := by
   simp [succ_transition, Transition.step, Turing.Tape.mk₂]
 
-lemma succ_step_even' (n : ℕ) (pref : List BlankChar) :
-  let σ' := succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya (2 * n + 2)))⟩)
-  σ'.state = 0 ∧ (σ'.tapes 0).move .left = Turing.Tape.mk₂ pref ('1' :: rev_dya n) := by
-  rw [rev_dya_even]
+lemma succ_step_even' (n : ℕ) (pref : List (Option OneTwo)) :
+  let σ' := succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option (2 * n + 2)))⟩)
+  σ'.state = 0 ∧
+  (σ'.tapes 0).move .left = Turing.Tape.mk₂ pref ((some .one) :: rev_dya_option n) := by
   simp [succ_transition, Transition.step, Turing.Tape.mk₂, performTapeOps]
 
-lemma succ_step_even (n : ℕ) (pref : List BlankChar) :
-  succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya (2 * n + 2)))⟩) =
-    ⟨0, fun _ => (Turing.Tape.mk₂ pref ('1' :: rev_dya n)).move .right⟩ := by
-  rw [rev_dya_even]
+lemma succ_step_even (n : ℕ) (pref : List (Option OneTwo)) :
+  succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option (2 * n + 2)))⟩) =
+    ⟨0, fun _ => (Turing.Tape.mk₂ pref ((some .one) :: rev_dya_option n)).move .right⟩ := by
   simp [succ_transition, Transition.step, Turing.Tape.mk₂, performTapeOps]
 
-theorem succ_semantics (n : ℕ) (pref : List BlankChar) :
+theorem succ_semantics (n : ℕ) (pref : List (Option OneTwo)) :
   ∃ shift : ℕ,
-  succ_transition.n_steps (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya n))⟩) ((n + 2).log2 + 1) =
-  ⟨1, fun _ => (Turing.Tape.move .right)^[shift] (Turing.Tape.mk₂ pref (rev_dya (n + 1)))⟩ := by
+  succ_transition.n_steps (⟨
+    0, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option n))
+  ⟩) ((n + 2).log2 + 1) =
+  ⟨1, fun _ =>
+    (Turing.Tape.move .right)^[shift] (Turing.Tape.mk₂ pref (rev_dya_option (n + 1)))⟩ := by
   revert pref
   refine dyadic_induction_on n ?_ ?_ ?_
   · intro pref
     use 0;
     simp [Transition.n_steps, Transition.step, succ_transition, Turing.Tape.mk₂, default]
-    simp [rev_dya, dyadic_encoding_reverse]
+    simp [rev_dya_option, rev_dya, dyadic_encoding_reverse]
   · intro n ih pref
     use 0
     rw [← n_steps_first, succ_step_odd]
@@ -84,25 +97,25 @@ theorem succ_semantics (n : ℕ) (pref : List BlankChar) :
     rw [← n_steps_first, succ_step_even]
     simp [Turing.Tape.mk₂]
     rw [← Turing.Tape.mk₂]
-    obtain ⟨shift, ih⟩ := ih ('1' :: pref)
+    obtain ⟨shift, ih⟩ := ih ((some .one):: pref)
     use shift + 1
     rw [Nat.log2_def]
     simp_all
     unfold Turing.Tape.mk₂
     have hn : 2 * n + 2 + 1 = 2 * (n + 1) + 1 := by ring
-    rw [hn]
-    simp [rev_dya_odd]
+    simp [hn]
 
 theorem succ_in_linear_time (n : ℕ) : succ_tm.runs_in_time
     (rev_dya n)
     (rev_dya n.succ)
     ((n + 2).log2 + 1) := by
   obtain ⟨shift, hstep⟩ := succ_semantics n []
-  rw [Turing.Tape.mk₂] at hstep
+  rw [Turing.Tape.mk₂, rev_dya_option] at hstep
   simp [TM.runs_in_time, TM.runs_in_exact_time, TM.initial_configuration]
   use (n + 2).log2 + 1
   simp [succ_tm, Turing.Tape.mk₁, Turing.Tape.mk₂, hstep]
   use shift, .left;
-  simp
+  simp [rev_dya_option]
+
 
 -- theorem succ_in_dtime_id: dtime_nat id Nat.succ := by
