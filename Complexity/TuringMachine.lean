@@ -96,9 +96,9 @@ theorem n_steps_first {k : Nat} {S} {Γ} [Inhabited Γ]
       _ = σ.n_steps conf (1 + n) := by simp [n_steps_addition]
       _ = σ.n_steps conf (n + 1) := by rw [Nat.add_comm 1 n]
 
-def TM.initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
-  (tm : TM k S Γ) (input : List Γ) : Configuration k S Γ :=
-  let firstTape := Turing.Tape.mk₁ input
+def TM.initial_configuration {k : Nat} {S} {Γ}
+  (tm : TM k S (Option Γ)) (input : List Γ) : Configuration k S (Option Γ) :=
+  let firstTape := Turing.Tape.mk₁ (input.map some)
   { state := tm.startState, tapes := fun i => if i.val = 0 then firstTape else default }
 
 
@@ -124,8 +124,8 @@ def tape_equiv_up_to_shift {Γ} [Inhabited Γ]
 --   let (conf, output') := tm.run_on_input_for_steps input t
 --   output = output' ∧ conf.state = tm.acceptState ∧ conf.space = s
 
-def TM.runs_in_exact_time {k : Nat} {S} {Γ} [Inhabited Γ]
-  (tm : TM (k + 1) S Γ) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
+def TM.runs_in_exact_time {k : Nat} {S} {Γ}
+  (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
   -- TODO and actually we need that the stop state is not reached earlier.
   let conf := tm.transition.n_steps (TM.initial_configuration tm input) t
   tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ output) ∧
@@ -142,8 +142,8 @@ def TM.runs_in_exact_time {k : Nat} {S} {Γ} [Inhabited Γ]
 --   let (conf, output') := tm.run_on_input_for_steps input t'
 --   output = output' ∧ conf.state = tm.acceptState ∧ conf.space ≤ s
 
-def TM.runs_in_time {k : Nat} {S} {Γ} [Inhabited Γ]
-  (tm : TM k.succ S Γ) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
+def TM.runs_in_time {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
   ∃ t' ≤ t, tm.runs_in_exact_time input output t'
 
 -- def computable_in_time_and_space {Γ} [Inhabited Γ]
@@ -156,14 +156,19 @@ def TM.runs_in_time {k : Nat} {S} {Γ} [Inhabited Γ]
 --   ∃ (k : Nat) (st : Nat) (tm : TM k (Fin st) Γ),
 --     ∀ input, tm.runs_in_time input (f input) (t input.length)
 
+--- Functions computable in deterministic time `t`.
+def dtime {Γ} [Finite Γ]
+  (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
+  ∃ (k c : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
+    Finite S ∧ ∀ input : List Γ,
+    tm.runs_in_time input (f input) (c * (t input.length) + c)
+
 -- TODO define space complexity
-def nat_function_computable_in_time (f : ℕ → ℕ) (t : ℕ → ℕ) : Prop :=
+
+--- Functions on the natural numbers, computable in deterministic time `t`.
+def dtime_nat (t : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
   ∃ (encoder : ℕ → List Bool), Function.Bijective encoder ∧
-  ∃ (c k st : ℕ) (tm : TM k.succ (Fin st) (Option Bool)),
-  ∀ n, tm.runs_in_time
-    ((encoder n).map Option.some)
-    ((encoder (f n)).map Option.some)
-    (c * (t n.log2) + c)
+  dtime t (encoder ∘ f ∘ (Function.invFun encoder))
 
 @[simp]
 theorem Tape.write_mk'_list {Γ} [Inhabited Γ] (a b : Γ) (L : Turing.ListBlank Γ) (R : List Γ) :
