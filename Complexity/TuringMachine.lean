@@ -14,7 +14,6 @@ instance : DecidableEq BlankChar := inferInstanceAs (DecidableEq Char)
 instance : Coe Char BlankChar where
   coe c := c
 
-
 -- Alias for the transition function type
 abbrev Transition (k : Nat) (Q : Type u) (Γ : Type v) :=
   Q → (Fin k → Γ) → Q × ((Fin k) → (Γ × Option Turing.Dir))
@@ -53,7 +52,7 @@ lemma perform_write_same_move {Γ} [Inhabited Γ]
   performTapeOps tape symbol (some dir) = tape.move dir := by
   subst h_same_symbol; rfl
 
-def Transition.step {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+def Transition.step {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) : Configuration k S Γ :=
   let (newState, tapeOps) := σ conf.state fun i => (conf.tapes i).head
   {
@@ -61,7 +60,7 @@ def Transition.step {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
     tapes := fun i => performTapeOps (conf.tapes i) (tapeOps i).1 (tapeOps i).2
   }
 
-def Transition.n_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+def Transition.n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) :
   Configuration k S Γ :=
   match n with
@@ -69,12 +68,12 @@ def Transition.n_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
   | Nat.succ m => σ.step (σ.n_steps conf m)
 
 @[simp]
-lemma n_steps_zero {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+lemma n_steps_zero {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) :
   σ.n_steps conf 0 = conf := by
   rfl
 
-theorem n_steps_addition {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+theorem n_steps_addition {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (m n : Nat) :
   σ.n_steps conf (n + m) = σ.n_steps (σ.n_steps conf n) m := by
   induction m with
@@ -82,14 +81,14 @@ theorem n_steps_addition {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
   | succ m ih => simp [Transition.n_steps, ih]
 
 @[simp]
-lemma single_step {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+lemma single_step {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) :
   σ.n_steps conf 1 = σ.step conf := by
   rfl
 
 --- In contrast to `Transition.n_steps`, extracts the first step and not the last.
 @[simp]
-theorem n_steps_first {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+theorem n_steps_first {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) :
   σ.n_steps (σ.step conf) n = σ.n_steps conf (n + 1) := by
   calc σ.n_steps (σ.step conf) n
@@ -120,7 +119,7 @@ def tape_equiv_up_to_shift {Γ} [Inhabited Γ]
   (t1 t2 : Turing.Tape Γ) : Prop :=
   ∃ shift: ℤ, ∀ pos : Int, t1.nth (pos + shift) = t2.nth pos
 
-def TM.run_on_input_for_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
+def TM.run_on_input_for_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (tm : TM k S Γ) (input : List Γ) (steps : ℕ) : Configuration k S Γ :=
   tm.transition.n_steps (TM.initial_configuration tm input) steps
 
@@ -129,7 +128,7 @@ def TM.run_on_input_for_steps {k : Nat} {S} [DecidableEq S] {Γ} [Inhabited Γ]
 --   let (conf, output') := tm.run_on_input_for_steps input t
 --   output = output' ∧ conf.state = tm.acceptState ∧ conf.space = s
 
-def TM.runs_in_exact_time {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
+def TM.runs_in_exact_time {k : Nat} {S} {Γ} [Inhabited Γ]
   (tm : TM (k + 1) S Γ) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
   -- TODO and actually we need that the stop state is not reached earlier.
   let conf := tm.run_on_input_for_steps input t
@@ -147,7 +146,7 @@ def TM.runs_in_exact_time {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
 --   let (conf, output') := tm.run_on_input_for_steps input t'
 --   output = output' ∧ conf.state = tm.acceptState ∧ conf.space ≤ s
 
-def TM.runs_in_time {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
+def TM.runs_in_time {k : Nat} {S} {Γ} [Inhabited Γ]
   (tm : TM k.succ S Γ) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
   ∃ t' ≤ t, tm.runs_in_exact_time input output t'
 
@@ -161,12 +160,11 @@ def TM.runs_in_time {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
 --   ∃ (k : Nat) (st : Nat) (tm : TM k (Fin st) Γ),
 --     ∀ input, tm.runs_in_time input (f input) (t input.length)
 
--- -- TODO maybe force dyadic encoding so that the bounds make sense?
--- -- or express the bounds in terms of log of the input?
--- def nat_function_computable_in_time_and_space (f : ℕ → ℕ) (t : ℕ → ℕ) (s : ℕ → ℕ) : Prop :=
---   ∃ (encoder : ℕ → List Bool) (decoder : List Bool → ℕ) (_ : ∀ n, decoder (encoder n) = n),
---   ∃ (k : Nat) (st : Nat) (S : Finset (Fin st)) (tm : TM k S Bool),
---   ∀ n, tm.runs_in_time_and_space (encoder n) (encoder (f n)) (t n) (s n)
+-- TODO define space complexity
+def nat_function_computable_in_time (f : ℕ → ℕ) (t : ℕ → ℕ) : Prop :=
+  ∃ (encoder : ℕ → List Bool), Function.Bijective encoder ∧
+  ∃ (k st : ℕ) (tm : TM k.succ (Fin st) (Option Bool)),
+  ∀ n, tm.runs_in_time ((encoder n).map Option.some) ((encoder (f n)).map Option.some) (t n)
 
 
 @[simp]
