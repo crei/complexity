@@ -116,6 +116,3 @@ theorem succ_in_linear_time (n : ℕ) : succ_tm.runs_in_time
   simp [succ_tm, Turing.Tape.mk₁, Turing.Tape.mk₂, hstep]
   use shift, .left;
   simp [rev_dya_option]
-
-
--- theorem succ_in_dtime_id: dtime_nat id Nat.succ := by

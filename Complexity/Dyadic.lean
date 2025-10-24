@@ -99,6 +99,7 @@ theorem dyadic_bijective (n : ℕ) :
     simp [dyadic_encoding_prop_one, dyadic_decoding, dyadic_decoding_reverse]
     simp [IH n' (by linarith), Nat.mul_comm]
 
+-- TODO redo with dyadic induction?
 theorem dyadic_reverse_bijective (n : ℕ) :
   dyadic_decoding_reverse (dyadic_encoding_reverse n) = n := by
   refine Nat.strong_induction_on n ?_; intro n IH
@@ -120,3 +121,30 @@ theorem dyadic_reverse_bijective (n : ℕ) :
     rw [hn']
     simp [dyadic_encoding_reverse_prop_one, dyadic_decoding_reverse]
     simp [IH n' (by linarith), Nat.mul_comm]
+
+theorem dyadic_encoding_reverse_injective (n : ℕ) :
+  dyadic_decoding_reverse (dyadic_encoding_reverse n) = n := by
+  refine dyadic_induction_on n ?_ ?_ ?_
+  · simp [dyadic_encoding_reverse, dyadic_decoding_reverse]
+  · intro n IH
+    simp [dyadic_encoding_reverse_prop_one, dyadic_decoding_reverse]
+    simp [IH, Nat.mul_comm]
+  · intro n IH
+    simp [dyadic_encoding_reverse_prop_two, dyadic_decoding_reverse]
+    simp [IH, Nat.mul_comm]
+
+theorem dyadic_encoding_reverse_surjective (xs : List Bool) :
+  dyadic_encoding_reverse (dyadic_decoding_reverse xs) = xs := by
+  induction xs with
+  | nil => simp [dyadic_decoding_reverse, dyadic_encoding_reverse]
+  | cons b xs IH =>
+    cases b
+    · simp only [dyadic_decoding_reverse]
+      rw [Nat.mul_comm, dyadic_encoding_reverse_prop_one, IH]
+    · simp only [dyadic_decoding_reverse]
+      rw [Nat.mul_comm, dyadic_encoding_reverse_prop_two, IH]
+
+theorem dyadic_encoding_reverse_bijective : Function.Bijective dyadic_encoding_reverse := by
+  constructor
+  · exact Function.LeftInverse.injective dyadic_encoding_reverse_injective
+  · exact Function.RightInverse.surjective dyadic_encoding_reverse_surjective

@@ -157,8 +157,8 @@ def TM.runs_in_time {k : Nat} {S} {Γ}
 --     ∀ input, tm.runs_in_time input (f input) (t input.length)
 
 --- Functions computable in deterministic time `t`.
-def dtime {Γ} [Finite Γ]
-  (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
+def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
+  Finite Γ ∧
   ∃ (k c : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
     Finite S ∧ ∀ input : List Γ,
     tm.runs_in_time input (f input) (c * (t input.length) + c)
@@ -167,8 +167,9 @@ def dtime {Γ} [Finite Γ]
 
 --- Functions on the natural numbers, computable in deterministic time `t`.
 def dtime_nat (t : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
-  ∃ (encoder : ℕ → List Bool), Function.Bijective encoder ∧
-  dtime t (encoder ∘ f ∘ (Function.invFun encoder))
+  ∃ (Γ : Type) (encoder : ℕ → List Γ),
+    Function.Bijective encoder ∧
+    dtime t (encoder ∘ f ∘ (Function.invFun encoder))
 
 @[simp]
 theorem Tape.write_mk'_list {Γ} [Inhabited Γ] (a b : Γ) (L : Turing.ListBlank Γ) (R : List Γ) :
