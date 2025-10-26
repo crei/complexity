@@ -163,10 +163,40 @@ def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
     Finite S ∧ ∀ input : List Γ,
     tm.runs_in_time input (f input) (c * (t input.length) + c)
 
--- TODO define space complexity
+--- Space used by a single tape (sum of lengths of left and right parts)
+def tape_space {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) : ℕ :=
+  tape.left.length + tape.right.length
+
+--- Space complexity of a configuration (sum of space across all tapes)
+def Configuration.space {k : Nat} {S} {Γ} [Inhabited Γ] (conf : Configuration k S Γ) : ℕ :=
+  Finset.sum Finset.univ fun i => tape_space (conf.tapes i)
+
+def TM.runs_in_exact_space {k : Nat} {S} {Γ}
+  (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
+  let conf := tm.transition.n_steps (TM.initial_configuration tm input) t
+  tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ (output.map some)) ∧
+  conf.state = tm.stopState ∧
+  conf.space = s
+
+def TM.runs_in_space {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
+  ∃ t' ≤ t, ∃ s' ≤ s, tm.runs_in_exact_space input output t' s'
+
+--- Functions computable in deterministic space `s`.
+def dspace {Γ} (s : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
+  Finite Γ ∧
+  ∃ (k c : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
+    Finite S ∧ ∀ input : List Γ,
+    ∃ t : ℕ, tm.runs_in_space input (f input) t (c * (s input.length) + c)
 
 --- Functions on the natural numbers, computable in deterministic time `t`.
 def dtime_nat (t : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
   ∃ (Γ : Type) (encoder : ℕ → List Γ),
     Function.Bijective encoder ∧
     dtime t (encoder ∘ f ∘ (Function.invFun encoder))
+
+--- Functions on the natural numbers, computable in deterministic space `s`.
+def dspace_nat (s : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
+  ∃ (Γ : Type) (encoder : ℕ → List Γ),
+    Function.Bijective encoder ∧
+    dspace s (encoder ∘ f ∘ (Function.invFun encoder))
