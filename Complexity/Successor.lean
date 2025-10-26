@@ -1,5 +1,6 @@
 import Complexity.TuringMachine
 import Complexity.Dyadic
+import Complexity.TapeLemmas
 
 import Mathlib
 
