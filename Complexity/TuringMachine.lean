@@ -169,7 +169,7 @@ def tape_space {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) : ℕ :=
 
 --- Space complexity of a configuration (sum of space across all tapes)
 def Configuration.space {k : Nat} {S} {Γ} [Inhabited Γ] (conf : Configuration k S Γ) : ℕ :=
-  Finset.sum Finset.univ fun i => tape_space (conf.tapes i)
+  ∑ i, tape_space (conf.tapes i)
 
 def TM.runs_in_exact_space {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
