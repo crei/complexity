@@ -163,20 +163,49 @@ def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
     Finite S ∧ ∀ input : List Γ,
     tm.runs_in_time input (f input) (c * (t input.length) + c)
 
---- Space used by a single tape (sum of lengths of left and right parts)
-def tape_space {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) : ℕ :=
-  tape.left.length + tape.right.length
+--- Position of tape head (as an integer, measuring distance from initial position)
+def tape_position {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) : ℤ :=
+  tape.left.length
 
---- Space complexity of a configuration (sum of space across all tapes)
-def Configuration.space {k : Nat} {S} {Γ} [Inhabited Γ] (conf : Configuration k S Γ) : ℕ :=
-  ∑ i, tape_space (conf.tapes i)
+--- Structure to track min and max positions visited by each tape head
+structure TapePositionBounds (k : Nat) where
+  min_pos : Fin k → ℤ
+  max_pos : Fin k → ℤ
+
+--- Compute position bounds for a configuration after n steps, inductively
+def position_bounds_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Nat → TapePositionBounds k
+  | 0 => {
+      min_pos := fun i => tape_position (conf.tapes i),
+      max_pos := fun i => tape_position (conf.tapes i)
+    }
+  | Nat.succ n =>
+      let prev_bounds := position_bounds_n_steps σ conf n
+      let next_conf := σ.step (σ.n_steps conf n)
+      {
+        min_pos := fun i => min (prev_bounds.min_pos i) (tape_position (next_conf.tapes i)),
+        max_pos := fun i => max (prev_bounds.max_pos i) (tape_position (next_conf.tapes i))
+      }
+
+--- Space used by a single tape, measured as the range of positions visited
+def tape_space_from_bounds (min_pos max_pos : ℤ) : ℕ :=
+  (max_pos - min_pos + 1).toNat
+
+--- Total space complexity: sum over all tapes of (max_pos - min_pos + 1)
+def space_from_bounds {k : Nat} (bounds : TapePositionBounds k) : ℕ :=
+  ∑ i, tape_space_from_bounds (bounds.min_pos i) (bounds.max_pos i)
+
+--- Space complexity for a configuration after n steps
+def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) : ℕ :=
+  space_from_bounds (position_bounds_n_steps σ conf n)
 
 def TM.runs_in_exact_space {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
   let conf := tm.transition.n_steps (TM.initial_configuration tm input) t
   tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ (output.map some)) ∧
   conf.state = tm.stopState ∧
-  conf.space = s
+  Configuration.space_n_steps tm.transition (TM.initial_configuration tm input) t = s
 
 def TM.runs_in_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
