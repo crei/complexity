@@ -163,42 +163,60 @@ def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
     Finite S ∧ ∀ input : List Γ,
     tm.runs_in_time input (f input) (c * (t input.length) + c)
 
---- Position of tape head (as an integer, measuring distance from initial position)
-def tape_position {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) : ℤ :=
-  tape.left.length
+--- Structure to track positions and bounds for each tape head
+structure PositionState (k : Nat) where
+  pos : Fin k → ℤ        -- current position of each tape head
+  min_pos : Fin k → ℤ    -- minimum position visited
+  max_pos : Fin k → ℤ    -- maximum position visited
 
---- Structure to track min and max positions visited by each tape head
-structure TapePositionBounds (k : Nat) where
-  min_pos : Fin k → ℤ
-  max_pos : Fin k → ℤ
+--- Update position based on a move operation
+def update_position (pos : ℤ) (move : Option Turing.Dir) : ℤ :=
+  match move with
+  | none => pos
+  | some Turing.Dir.left => pos - 1
+  | some Turing.Dir.right => pos + 1
 
---- Compute position bounds for a configuration after n steps, inductively
-def position_bounds_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Nat → TapePositionBounds k
-  | 0 => {
-      min_pos := fun i => tape_position (conf.tapes i),
-      max_pos := fun i => tape_position (conf.tapes i)
-    }
+--- Update position state after a move operation on a specific tape
+def update_position_state {k : Nat} (state : PositionState k) (i : Fin k) (move : Option Turing.Dir) : PositionState k :=
+  let new_pos := update_position (state.pos i) move
+  {
+    pos := fun j => if j = i then new_pos else state.pos j,
+    min_pos := fun j => if j = i then min (state.min_pos i) new_pos else state.min_pos j,
+    max_pos := fun j => if j = i then max (state.max_pos i) new_pos else state.max_pos j
+  }
+
+--- Initial position state for a configuration (all positions start at 0)
+def initial_position_state (k : Nat) : PositionState k :=
+  {
+    pos := fun _ => 0,
+    min_pos := fun _ => 0,
+    max_pos := fun _ => 0
+  }
+
+--- Compute position state after n steps, inductively
+def position_state_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Nat → PositionState k
+  | 0 => initial_position_state k
   | Nat.succ n =>
-      let prev_bounds := position_bounds_n_steps σ conf n
-      let next_conf := σ.step (σ.n_steps conf n)
-      {
-        min_pos := fun i => min (prev_bounds.min_pos i) (tape_position (next_conf.tapes i)),
-        max_pos := fun i => max (prev_bounds.max_pos i) (tape_position (next_conf.tapes i))
-      }
+      let prev_state := position_state_n_steps σ conf n
+      let prev_conf := σ.n_steps conf n
+      let (_, tapeOps) := σ prev_conf.state fun i => (prev_conf.tapes i).head
+      -- Update position state for all tapes based on their move operations
+      (Finset.univ : Finset (Fin k)).fold prev_state
+        (fun state i => update_position_state state i (tapeOps i).2)
 
 --- Space used by a single tape, measured as the range of positions visited
 def tape_space_from_bounds (min_pos max_pos : ℤ) : ℕ :=
   (max_pos - min_pos + 1).toNat
 
 --- Total space complexity: sum over all tapes of (max_pos - min_pos + 1)
-def space_from_bounds {k : Nat} (bounds : TapePositionBounds k) : ℕ :=
-  ∑ i, tape_space_from_bounds (bounds.min_pos i) (bounds.max_pos i)
+def space_from_position_state {k : Nat} (state : PositionState k) : ℕ :=
+  ∑ i, tape_space_from_bounds (state.min_pos i) (state.max_pos i)
 
 --- Space complexity for a configuration after n steps
 def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) : ℕ :=
-  space_from_bounds (position_bounds_n_steps σ conf n)
+  space_from_position_state (position_state_n_steps σ conf n)
 
 def TM.runs_in_exact_space {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
