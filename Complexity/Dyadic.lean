@@ -99,29 +99,6 @@ theorem dyadic_bijective (n : ℕ) :
     simp [dyadic_encoding_prop_one, dyadic_decoding, dyadic_decoding_reverse]
     simp [IH n' (by linarith), Nat.mul_comm]
 
--- TODO redo with dyadic induction?
-theorem dyadic_reverse_bijective (n : ℕ) :
-  dyadic_decoding_reverse (dyadic_encoding_reverse n) = n := by
-  refine Nat.strong_induction_on n ?_; intro n IH
-  by_cases hEven : Even n
-  · match n with
-    | .zero => simp [dyadic_encoding_reverse, dyadic_decoding_reverse]
-    | .succ m =>
-      have h2 : ∃ n', m = 2 * n' + 1 := by
-        simp [Nat.even_add_one, Nat.succ_eq_add_one] at hEven
-        exact hEven
-      rcases h2 with ⟨n', h2⟩
-      rw [h2]
-      simp [dyadic_encoding_reverse_prop_two, dyadic_decoding_reverse]
-      simp [IH n' (by linarith), Nat.mul_comm]
-  · have h2 : ∃ n', n = 2 * n' + 1 := by
-      simp_all only [Nat.not_even_iff_odd]
-      exact hEven
-    rcases h2 with ⟨n', hn'⟩
-    rw [hn']
-    simp [dyadic_encoding_reverse_prop_one, dyadic_decoding_reverse]
-    simp [IH n' (by linarith), Nat.mul_comm]
-
 theorem dyadic_encoding_reverse_injective (n : ℕ) :
   dyadic_decoding_reverse (dyadic_encoding_reverse n) = n := by
   refine dyadic_induction_on n ?_ ?_ ?_
