@@ -76,6 +76,27 @@ theorem dyadic_induction_on {p : ℕ → Prop} (n : ℕ)
       rw [hn']
       exact h1 n' (IH n' (by linarith))
 
+lemma log2_succ (n : ℕ) : (2 * n + 2 + 1).log2 = (2 * (n + 1)).log2 := by
+  calc
+    (2 * (n + 1) + 1).log2 = ((2 * (n + 1) + 1) / 2).log2 + 1 := by rw [Nat.log2_def]; simp
+      _ = ((2 * (n + 1) + 1).div2).log2 + 1 := by rw [← Nat.div2_val]
+      _ = (n + 1).log2 + 1 := by simp [Nat.div2_succ]
+      _ = (2 * (n + 1)).log2 := by simp [Nat.log2_two_mul]
+
+theorem dyadic_length (n : ℕ) : (dyadic_encoding n).length = (n + 1).log2 := by
+  refine dyadic_induction_on n ?_ ?_ ?_
+  · unfold dyadic_encoding; decide
+  · intro n IH
+    simp [dyadic_encoding_prop_one, IH]
+    rw [← Nat.log2_two_mul]
+    · rfl
+    · simp
+  · intro n IH
+    simp [dyadic_encoding_prop_two, IH]
+    rw [← Nat.log2_two_mul]
+    · simp [log2_succ]
+    · simp
+
 theorem dyadic_bijective (n : ℕ) :
   dyadic_decoding (dyadic_encoding n) = n := by
   refine Nat.strong_induction_on n ?_; intro n IH

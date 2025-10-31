@@ -7,6 +7,7 @@ import Mathlib
 inductive OneTwo where
   | one
   | two
+  deriving DecidableEq, Fintype
 
 def succ_transition : Transition 1 (Fin 2) (Option OneTwo) :=
   fun state symbols =>
@@ -61,6 +62,10 @@ lemma rev_dya_option_even (n : ℕ) :
     rev_dya_option (2 * n + 2) = (some .two) :: rev_dya_option (n) := by
   simp [rev_dya_option]
 
+theorem rev_dya_bijective : Function.Bijective rev_dya := by
+  exact Function.Bijective.comp
+    (Function.Bijective.list_map (by decide)) dyadic_encoding_reverse_bijective
+
 lemma succ_step_odd (n : ℕ) (pref : List (Option OneTwo)) :
   succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option (2 * n + 1)))⟩) =
     ⟨1, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option (2 * n + 2)))⟩ := by
@@ -106,7 +111,7 @@ theorem succ_semantics (n : ℕ) (pref : List (Option OneTwo)) :
     have hn : 2 * n + 2 + 1 = 2 * (n + 1) + 1 := by ring
     simp [hn]
 
-theorem succ_in_linear_time (n : ℕ) : succ_tm.runs_in_time
+theorem succ_in_linear_time_via_rev_dya (n : ℕ) : succ_tm.runs_in_time
     (rev_dya n)
     (rev_dya n.succ)
     ((n + 2).log2 + 1) := by
@@ -117,3 +122,40 @@ theorem succ_in_linear_time (n : ℕ) : succ_tm.runs_in_time
   simp [succ_tm, Turing.Tape.mk₁, Turing.Tape.mk₂, hstep]
   use shift, .left;
   simp [rev_dya_option]
+
+-- theorem succ_in_linear_time_via_rev_dya' :
+--    dtime id (rev_dya ∘ Nat.succ ∘ (Function.invFun rev_dya)) := by
+--   constructor
+--   · exact Finite.of_fintype OneTwo
+--   · use 0, 1, Fin 2, succ_tm
+--     constructor
+--     · exact Finite.of_fintype (Fin 2)
+--     · intro input
+--       -- Convert input back to natural number
+--       let n := Function.invFun rev_dya input
+--       have hn : rev_dya n = input := Function.leftInverse_invFun rev_dya_bijective.1 input
+--       rw [← hn]
+--       simp
+--       -- Now we need to show succ_tm.runs_in_time with the right bound
+--       have h := succ_in_linear_time_via_rev_dya n
+--       simp [TM.runs_in_time] at h ⊢
+--       obtain ⟨t', ht', hexact⟩ := h
+--       use t'
+--       constructor
+--       · calc t'
+--           _ ≤ (n + 2).log2 + 1 := ht'
+--           _ = (rev_dya n).length + 1 := by rw [← rev_dya_length_eq_log2]
+--           _ = 1 * (rev_dya n).length + 1 := by ring
+--           _ = 1 * id (rev_dya n).length + 1 := rfl
+--       · exact hexact
+
+-- Main theorem: successor is computable in linear time
+-- theorem succ_in_linear_time : dtime_nat id Nat.succ := by
+--   have h_length : ∀ n, (n + 1).log2 = (id (rev_dya n).length) := by sorry
+--   have runs_in_lintime : ∃ c : ℕ, ∀ n, succ_tm.runs_in_time
+--     (rev_dya n) (rev_dya (Nat.succ n)) (c * (id (rev_dya n).length) + c) :=  by
+--     use 1
+--     simp [succ_in_linear_time_via_rev_dya, h_length]
+--     sorry
+--   exact dtime_nat_encoder rev_dya id Nat.succ rev_dya_bijective (Finite.of_fintype OneTwo)
+--     (Finite.of_fintype (Fin 2)) succ_tm runs_in_lintime

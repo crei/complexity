@@ -146,6 +146,44 @@ def TM.runs_in_time {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
   ∃ t' ≤ t, tm.runs_in_exact_time input output t'
 
+lemma tm_runs_in_time_monotone {k : ℕ} {S} {Γ}
+  (tm : TM k.succ S (Option Γ))
+  (t₁ t₂ : ℕ)
+  (h_le : t₁ ≤ t₂)
+  (input : List Γ) (output : List Γ) (h : tm.runs_in_time input output t₁) :
+  tm.runs_in_time input output t₂ := by
+  obtain ⟨t', h_t'le, h_exact⟩ := h
+  use t'
+  constructor
+  · calc t' ≤ t₁ := h_t'le
+        _ ≤ t₂ := h_le
+  · exact h_exact
+
+def TM.computes_in_o_time {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : ℕ → ℕ) : Prop :=
+  ∃ c : ℕ, ∀ input, tm.runs_in_time input (f input) (c * t input.length + c)
+
+lemma computes_in_o_time_related {k : Nat} {S} {Γ}
+  (t₁ : ℕ → ℕ) (t₂ : ℕ → ℕ)
+  (h_related : ∃ c : ℕ, t₁ ≤ c * t₂ + c)
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ)
+  (h : tm.computes_in_o_time f t₁) :
+  tm.computes_in_o_time f t₂ := by
+  obtain ⟨c', h_related⟩ := h_related
+  obtain ⟨c, h⟩ := h
+  unfold TM.computes_in_o_time
+  let c'' := c * c' + c
+  use c''
+  intro input
+  let n := input.length
+  refine tm_runs_in_time_monotone tm
+    (c * (t₁ n) + c) (c'' * (t₂ n) + c'') ?_ input (f input) (h input)
+  calc
+    c * (t₁ n) + c ≤ c * (c' * (t₂ n) + c') + c := by gcongr; exact h_related n
+    _ = (c * c') * (t₂ n) + (c * c' + c) := by ring
+    _ ≤ (c * c' + c) * (t₂ n) + (c * c' + c) := by gcongr; exact Nat.le_add_right _ _
+    _ = c'' * (t₂ n) + c'' := by rfl
+
 -- def computable_in_time_and_space {Γ} [Inhabited Γ]
 --   (f : List Γ → List Γ) (t : Nat → Nat) (s : Nat → Nat) : Prop :=
 --   ∃ (k : Nat) (st : Nat) (S : Finset (Fin st)) (tm : TM k S Γ),
@@ -159,9 +197,8 @@ def TM.runs_in_time {k : Nat} {S} {Γ}
 --- Functions computable in deterministic time `t`.
 def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
   Finite Γ ∧
-  ∃ (k c : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
-    Finite S ∧ ∀ input : List Γ,
-    tm.runs_in_time input (f input) (c * (t input.length) + c)
+  ∃ (k : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
+    Finite S ∧ tm.computes_in_o_time f t
 
 -- TODO define space complexity
 
@@ -170,3 +207,28 @@ def dtime_nat (t : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
   ∃ (Γ : Type) (encoder : ℕ → List Γ),
     Function.Bijective encoder ∧
     dtime t (encoder ∘ f ∘ (Function.invFun encoder))
+
+lemma dtime_nat_encoder {k : ℕ} {S : Type} {Γ : Type}
+  (encoder : ℕ → List Γ) (t : ℕ → ℕ) (f : ℕ → ℕ)
+  (h_bij : Function.Bijective encoder)
+  (h_Γ_fin : Finite Γ)
+  (h_S_fin : Finite S)
+  (tm : TM k.succ S (Option Γ))
+  (h_time : ∃ c, ∀ n,
+    tm.runs_in_time (encoder n) (encoder (f n)) (c * (t (encoder n).length) + c)) :
+  dtime_nat t f := by
+  use Γ, encoder
+  simp [h_bij]
+  unfold dtime
+  simp [h_Γ_fin]
+  obtain ⟨c, htime'⟩ := h_time
+  use k, S
+  simp [h_S_fin]
+  use tm
+  unfold TM.computes_in_o_time
+  use c
+  rw [Function.Surjective.forall h_bij.2]
+  intro n
+  have hleft : Function.LeftInverse (Function.invFun encoder) encoder :=
+    Function.leftInverse_invFun (f := encoder) h_bij.injective
+  simpa [(hleft n)] using htime' n
