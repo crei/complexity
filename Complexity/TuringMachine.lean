@@ -193,12 +193,6 @@ def initial_position_state : PositionState :=
     max_pos := 0
   }
 
---- Extract move operations from a step (without storing symbols)
-def extract_moves {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Fin k → Option Turing.Dir :=
-  let (_, tapeOps) := σ conf.state fun i => (conf.tapes i).head
-  fun i => (tapeOps i).2
-
 --- Compute position state after n steps, inductively
 def position_state_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) : Nat → (Fin k → PositionState)
@@ -206,9 +200,9 @@ def position_state_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   | Nat.succ n =>
       let prev_states := position_state_n_steps σ conf n
       let prev_conf := σ.n_steps conf n
-      let moves := extract_moves σ prev_conf
+      let (_, tapeOps) := σ prev_conf.state fun i => (prev_conf.tapes i).head
       -- Update position state for each tape based on its move operation
-      fun i => update_position_state (prev_states i) (moves i)
+      fun i => update_position_state (prev_states i) (tapeOps i).2
 
 --- Total space complexity: sum over all tapes of (max_pos - min_pos + 1)
 def space_from_position_states {k : Nat} (states : Fin k → PositionState) : ℕ :=
