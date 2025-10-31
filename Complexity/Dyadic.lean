@@ -93,9 +93,20 @@ theorem dyadic_length (n : ℕ) : (dyadic_encoding n).length = (n + 1).log2 := b
     · simp
   · intro n IH
     simp [dyadic_encoding_prop_two, IH]
+    rw [← Nat.log2_two_mul] <;> simp [log2_succ]
+
+theorem dyadic_reverse_length (n : ℕ) :
+  (dyadic_encoding_reverse n).length = (n + 1).log2 := by
+  refine dyadic_induction_on n ?_ ?_ ?_
+  · unfold dyadic_encoding_reverse; decide
+  · intro n IH
+    simp [dyadic_encoding_reverse_prop_one, IH]
     rw [← Nat.log2_two_mul]
-    · simp [log2_succ]
+    · rfl
     · simp
+  · intro n IH
+    simp [dyadic_encoding_reverse_prop_two, IH]
+    rw [← Nat.log2_two_mul] <;> simp [log2_succ]
 
 theorem dyadic_bijective (n : ℕ) :
   dyadic_decoding (dyadic_encoding n) = n := by
