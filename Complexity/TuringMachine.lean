@@ -210,13 +210,9 @@ def position_state_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
       -- Update position state for each tape based on its move operation
       fun i => update_position_state (prev_states i) (moves i)
 
---- Space used by a single tape, measured as the range of positions visited
-def tape_space (state : PositionState) : ℕ :=
-  (state.max_pos - state.min_pos + 1).toNat
-
 --- Total space complexity: sum over all tapes of (max_pos - min_pos + 1)
 def space_from_position_states {k : Nat} (states : Fin k → PositionState) : ℕ :=
-  ∑ i, tape_space (states i)
+  ∑ i, ((states i).max_pos - (states i).min_pos + 1).toNat
 
 --- Space complexity for a configuration after n steps
 def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
