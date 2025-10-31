@@ -163,11 +163,11 @@ def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
     Finite S ∧ ∀ input : List Γ,
     tm.runs_in_time input (f input) (c * (t input.length) + c)
 
---- Structure to track positions and bounds for each tape head
-structure PositionState (k : Nat) where
-  pos : Fin k → ℤ        -- current position of each tape head
-  min_pos : Fin k → ℤ    -- minimum position visited
-  max_pos : Fin k → ℤ    -- maximum position visited
+--- Structure to track position and bounds for a single tape head
+structure PositionState where
+  pos : ℤ        -- current position of tape head
+  min_pos : ℤ    -- minimum position visited
+  max_pos : ℤ    -- maximum position visited
 
 --- Update position based on a move operation
 def update_position (pos : ℤ) (move : Option Turing.Dir) : ℤ :=
@@ -176,21 +176,21 @@ def update_position (pos : ℤ) (move : Option Turing.Dir) : ℤ :=
   | some Turing.Dir.left => pos - 1
   | some Turing.Dir.right => pos + 1
 
---- Update position state after a move operation on a specific tape
-def update_position_state {k : Nat} (state : PositionState k) (i : Fin k) (move : Option Turing.Dir) : PositionState k :=
-  let new_pos := update_position (state.pos i) move
+--- Update position state after a move operation
+def update_position_state (state : PositionState) (move : Option Turing.Dir) : PositionState :=
+  let new_pos := update_position state.pos move
   {
-    pos := fun j => if j = i then new_pos else state.pos j,
-    min_pos := fun j => if j = i then min (state.min_pos i) new_pos else state.min_pos j,
-    max_pos := fun j => if j = i then max (state.max_pos i) new_pos else state.max_pos j
+    pos := new_pos,
+    min_pos := min state.min_pos new_pos,
+    max_pos := max state.max_pos new_pos
   }
 
---- Initial position state for a configuration (all positions start at 0)
-def initial_position_state (k : Nat) : PositionState k :=
+--- Initial position state (position starts at 0)
+def initial_position_state : PositionState :=
   {
-    pos := fun _ => 0,
-    min_pos := fun _ => 0,
-    max_pos := fun _ => 0
+    pos := 0,
+    min_pos := 0,
+    max_pos := 0
   }
 
 --- Extract move operations from a step (without storing symbols)
@@ -201,28 +201,27 @@ def extract_moves {k : Nat} {S} {Γ} [Inhabited Γ]
 
 --- Compute position state after n steps, inductively
 def position_state_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Nat → PositionState k
-  | 0 => initial_position_state k
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Nat → (Fin k → PositionState)
+  | 0 => fun _ => initial_position_state
   | Nat.succ n =>
-      let prev_state := position_state_n_steps σ conf n
+      let prev_states := position_state_n_steps σ conf n
       let prev_conf := σ.n_steps conf n
       let moves := extract_moves σ prev_conf
-      -- Update position state for all tapes based on their move operations
-      (Finset.univ : Finset (Fin k)).fold prev_state
-        (fun state i => update_position_state state i (moves i))
+      -- Update position state for each tape based on its move operation
+      fun i => update_position_state (prev_states i) (moves i)
 
 --- Space used by a single tape, measured as the range of positions visited
-def tape_space_from_bounds (min_pos max_pos : ℤ) : ℕ :=
-  (max_pos - min_pos + 1).toNat
+def tape_space (state : PositionState) : ℕ :=
+  (state.max_pos - state.min_pos + 1).toNat
 
 --- Total space complexity: sum over all tapes of (max_pos - min_pos + 1)
-def space_from_position_state {k : Nat} (state : PositionState k) : ℕ :=
-  ∑ i, tape_space_from_bounds (state.min_pos i) (state.max_pos i)
+def space_from_position_states {k : Nat} (states : Fin k → PositionState) : ℕ :=
+  ∑ i, tape_space (states i)
 
 --- Space complexity for a configuration after n steps
 def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) : ℕ :=
-  space_from_position_state (position_state_n_steps σ conf n)
+  space_from_position_states (position_state_n_steps σ conf n)
 
 def TM.runs_in_exact_space {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
