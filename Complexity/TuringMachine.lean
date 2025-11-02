@@ -200,10 +200,82 @@ def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
   ∃ (k : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
     Finite S ∧ tm.computes_in_o_time f t
 
--- TODO define space complexity
+--- Structure to track position and bounds for a single tape head
+structure PositionState where
+  pos : ℤ        -- current position of tape head
+  min_pos : ℤ    -- minimum position visited
+  max_pos : ℤ    -- maximum position visited
+
+--- Update position based on a move operation
+def update_position (pos : ℤ) (move : Option Turing.Dir) : ℤ :=
+  match move with
+  | none => pos
+  | some Turing.Dir.left => pos - 1
+  | some Turing.Dir.right => pos + 1
+
+--- Update position state after a move operation
+def update_position_state (state : PositionState) (move : Option Turing.Dir) : PositionState :=
+  let new_pos := update_position state.pos move
+  {
+    pos := new_pos,
+    min_pos := min state.min_pos new_pos,
+    max_pos := max state.max_pos new_pos
+  }
+
+--- Initial position state (position starts at 0)
+def initial_position_state : PositionState :=
+  {
+    pos := 0,
+    min_pos := 0,
+    max_pos := 0
+  }
+
+--- Compute position state after n steps, inductively
+def position_state_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Nat → (Fin k → PositionState)
+  | 0 => fun _ => initial_position_state
+  | Nat.succ n =>
+      let prev_states := position_state_n_steps σ conf n
+      let prev_conf := σ.n_steps conf n
+      let (_, tapeOps) := σ prev_conf.state fun i => (prev_conf.tapes i).head
+      -- Update position state for each tape based on its move operation
+      fun i => update_position_state (prev_states i) (tapeOps i).2
+
+--- Total space complexity: sum over all tapes of (max_pos - min_pos + 1)
+def space_from_position_states {k : Nat} (states : Fin k → PositionState) : ℕ :=
+  ∑ i, ((states i).max_pos - (states i).min_pos + 1).toNat
+
+--- Space complexity for a configuration after n steps
+def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
+  (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) : ℕ :=
+  space_from_position_states (position_state_n_steps σ conf n)
+
+def TM.runs_in_exact_space {k : Nat} {S} {Γ}
+  (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
+  let conf := tm.transition.n_steps (TM.initial_configuration tm input) t
+  tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ (output.map some)) ∧
+  conf.state = tm.stopState ∧
+  Configuration.space_n_steps tm.transition (TM.initial_configuration tm input) t = s
+
+def TM.runs_in_space {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
+  ∃ t' ≤ t, ∃ s' ≤ s, tm.runs_in_exact_space input output t' s'
+
+--- Functions computable in deterministic space `s`.
+def dspace {Γ} (s : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
+  Finite Γ ∧
+  ∃ (k c : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
+    Finite S ∧ ∀ input : List Γ,
+    ∃ t : ℕ, tm.runs_in_space input (f input) t (c * (s input.length) + c)
 
 --- Functions on the natural numbers, computable in deterministic time `t`.
 def dtime_nat (t : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
   ∃ (Γ : Type) (encoder : ℕ → List Γ),
     Function.Bijective encoder ∧
     dtime t (encoder ∘ f ∘ (Function.invFun encoder))
+
+--- Functions on the natural numbers, computable in deterministic space `s`.
+def dspace_nat (s : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
+  ∃ (Γ : Type) (encoder : ℕ → List Γ),
+    Function.Bijective encoder ∧
+    dspace s (encoder ∘ f ∘ (Function.invFun encoder))
