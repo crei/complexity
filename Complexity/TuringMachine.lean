@@ -360,7 +360,7 @@ lemma TM.computes_in_o_time_and_space.monotone_space {k : Nat} {S} {Γ}
 def dspace {Γ} (s : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
   Finite Γ ∧
   ∃ (k : ℕ) (S : Type) (t : ℕ → ℕ) (tm : TM k.succ S (Option Γ)),
-    Finite S ∧ tm.computes_in_o_time_and_space f t s
+    Finite S ∧ tm.computes_in_o_time_and_space f ⟨t⟩ ⟨s⟩
 
 --- Functions on the natural numbers, computable in deterministic time `t`.
 def dtime_nat (t : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
