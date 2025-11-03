@@ -101,17 +101,6 @@ def TM.initial_configuration {k : Nat} {S} {Γ}
   let firstTape := Turing.Tape.mk₁ (input.map some)
   { state := tm.startState, tapes := fun i => if i.val = 0 then firstTape else default }
 
-
--- theorem tm_space_of_initial_configuration {k : Nat} {S} {Γ} [Inhabited Γ]
---   (tm : TM k S Γ) (input : List Γ) :
---   (TM.initial_configuration tm input).space = k := by
---   calc
---     (TM.initial_configuration tm input).space
---     _ = ∑ i, ((TM.initial_configuration tm input).work_tapes i).size := rfl
---     _ = ∑ i: Fin k, ((Tape.fromInput []) : Tape Γ).size :=
---         by simp [TM.initial_configuration, Configuration.work_tapes]
---     _ = k := by simp
-
 -- TOOD At some point we need the statement that we do not change the state
 -- after reaching the accept or reject state.
 
@@ -119,11 +108,7 @@ def tape_equiv_up_to_shift {Γ} [Inhabited Γ]
   (t1 t2 : Turing.Tape Γ) : Prop :=
   ∃ shift : ℕ, ∃ dir, t2 = (Turing.Tape.move dir)^[shift] t1
 
--- def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
---   (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
---   let (conf, output') := tm.run_on_input_for_steps input t
---   output = output' ∧ conf.state = tm.acceptState ∧ conf.space = s
-
+-- TODO remove
 def TM.runs_in_exact_time {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
   -- TODO and actually we need that the stop state is not reached earlier.
@@ -131,21 +116,12 @@ def TM.runs_in_exact_time {k : Nat} {S} {Γ}
   tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ (output.map some)) ∧
   conf.state = tm.stopState
 
--- def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
---   (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
---   let (conf, output') := tm.run_on_input_for_steps input t
---   output = output' ∧ conf.state = tm.acceptState ∧ conf.space = s
-
--- def TM.runs_in_time_and_space {k : Nat} {S} {Γ} [DecidableEq S] [Inhabited Γ]
---   (tm : TM k S Γ) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
---   ∃ t' ≤ t,
---   let (conf, output') := tm.run_on_input_for_steps input t'
---   output = output' ∧ conf.state = tm.acceptState ∧ conf.space ≤ s
-
+-- TODO remove
 def TM.runs_in_time {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
   ∃ t' ≤ t, tm.runs_in_exact_time input output t'
 
+-- TODO remove
 lemma TM.runs_in_time_monotone {k : ℕ} {S} {Γ}
   (tm : TM k.succ S (Option Γ))
   (t₁ t₂ : ℕ)
@@ -159,10 +135,12 @@ lemma TM.runs_in_time_monotone {k : ℕ} {S} {Γ}
         _ ≤ t₂ := h_le
   · exact h_exact
 
+-- TODO remove
 def TM.computes_in_o_time {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : ℕ → ℕ) : Prop :=
   ∃ c : ℕ, ∀ input, tm.runs_in_time input (f input) (c * t input.length + c)
 
+-- TODO prove equivalent for computes_in_o_time_and_space
 lemma computes_in_o_time_related {k : Nat} {S} {Γ}
   (t₁ : ℕ → ℕ) (t₂ : ℕ → ℕ)
   (h_related : ∃ c : ℕ, t₁ ≤ c * t₂ + c)
@@ -184,16 +162,7 @@ lemma computes_in_o_time_related {k : Nat} {S} {Γ}
     _ ≤ (c * c' + c) * (t₂ n) + (c * c' + c) := by gcongr; exact Nat.le_add_right _ _
     _ = c'' * (t₂ n) + c'' := by rfl
 
--- def computable_in_time_and_space {Γ} [Inhabited Γ]
---   (f : List Γ → List Γ) (t : Nat → Nat) (s : Nat → Nat) : Prop :=
---   ∃ (k : Nat) (st : Nat) (S : Finset (Fin st)) (tm : TM k S Γ),
---     ∀ input, tm.runs_in_time_and_space input (f input) (t input.length) (s input.length)
-
--- def computable_in_time {Γ} [Inhabited Γ]
---   (f : List Γ → List Γ) (t : Nat → Nat) : Prop :=
---   ∃ (k : Nat) (st : Nat) (tm : TM k (Fin st) Γ),
---     ∀ input, tm.runs_in_time input (f input) (t input.length)
-
+-- TODO remove - replace with definition through computes_in_o_time_and_space
 --- Functions computable in deterministic time `t`.
 def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
   Finite Γ ∧
@@ -250,23 +219,138 @@ def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) : ℕ :=
   space_from_position_states (position_state_n_steps σ conf n)
 
-def TM.runs_in_exact_space {k : Nat} {S} {Γ}
+def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
   let conf := tm.transition.n_steps (TM.initial_configuration tm input) t
   tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ (output.map some)) ∧
+  -- TODO and actually we need that the stop state is not reached earlier.
   conf.state = tm.stopState ∧
   Configuration.space_n_steps tm.transition (TM.initial_configuration tm input) t = s
 
-def TM.runs_in_space {k : Nat} {S} {Γ}
+def TM.runs_in_time_and_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
-  ∃ t' ≤ t, ∃ s' ≤ s, tm.runs_in_exact_space input output t' s'
+  ∃ t' ≤ t, ∃ s' ≤ s, tm.runs_in_exact_time_and_space input output t' s'
+
+lemma TM.runs_in_time_and_space_monotone_time {k : ℕ} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (s : Nat) :
+    Monotone (fun t => tm.runs_in_time_and_space input output t s) := by
+  unfold Monotone
+  intro t₁ t₂ h_le
+  simp only [le_Prop_eq]
+  intro h
+  obtain ⟨t', h_t'le, s', h_exact⟩ := h
+  use t'
+  constructor
+  · calc t' ≤ t₁ := h_t'le
+        _ ≤ t₂ := h_le
+  · use s'
+
+lemma TM.run_in_time_and_space_monotone_space {k : ℕ} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) :
+    Monotone (fun s => tm.runs_in_time_and_space input output t s) := by
+  unfold Monotone
+  intro s₁ s₂ h_le
+  simp only [le_Prop_eq]
+  intro h
+  obtain ⟨t', h_t'le, s', h_exact⟩ := h
+  use t'
+  constructor
+  · exact h_t'le
+  · use s'
+    constructor
+    · calc s' ≤ s₁ := h_exact.left
+        _ ≤ s₂ := h_le
+    · exact h_exact.right
+
+structure Bound where
+  to_fun : ℕ → ℕ
+
+instance : Coe Bound (ℕ → ℕ) where
+  coe f := f.to_fun
+
+--- Big-O-Notation: Function `f` is in `O(g)`.
+def bound_le (f g : ℕ → ℕ) : Prop :=
+  ∃ c : ℕ, f ≤ c * g + c
+
+def Bound.le (f g : Bound) : Prop := bound_le f g
+
+infix:50 " ≼ " => Bound.le
+
+@[refl]
+lemma Bound.le.refl (f : Bound) : le f f := by
+  use 1; simp
+
+@[trans]
+lemma Bound.le.trans (f g h : Bound)
+  (h_fg : le f g) (h_gh : le g h) : le f h := by
+  obtain ⟨c₁, h_fg⟩ := h_fg
+  obtain ⟨c₂, h_gh⟩ := h_gh
+  use c₁ * c₂ + c₁
+  intro n
+  calc
+    f.to_fun n ≤ c₁ * g.to_fun n + c₁ := h_fg n
+    _ ≤ c₁ * (c₂ * h.to_fun n + c₂) + c₁ := by gcongr; exact h_gh n
+    _ = (c₁ * c₂) * h.to_fun n + (c₁ * c₂ + c₁) := by ring
+    _ ≤ (c₁ * c₂ + c₁) * h.to_fun n + (c₁ * c₂ + c₁) := by gcongr; exact Nat.le_add_right _ _
+
+-- Bound.le is a Preorder
+instance : Preorder Bound where
+  le := Bound.le
+  le_refl := Bound.le.refl
+  le_trans := Bound.le.trans
+
+--- le_o is a coarse version of ≤
+lemma Bound.le.le_of_le {f g : ℕ → ℕ} (h_gh : f ≤ g) : Bound.le ⟨ f ⟩ ⟨ g ⟩ := by
+  use 1; intro n; specialize h_gh n;
+  calc
+    f n ≤ g n := h_gh
+    _ ≤ 1 * g n + 1 := by linarith
+
+@[trans]
+theorem Bounds.trans_is_bounds_le {f g h : Bound}
+    (h_le₁ : f ≼ g) (h_le₂ : g ≤ h) : f ≼ h := by
+  have h : g ≼ h := by sorry
+  exact Bound.le.trans _ _ _ h_le₁ h
+
+instance : Trans (· ≼ ·) (· ≤ ·) (· ≼ ·) where
+  trans := Bounds.trans_is_bounds_le
+
+def Bound.degree (f : Bound) := { g : ℕ → ℕ // Bound.le ⟨ g ⟩ f }
+
+def TM.computes_in_time_and_space {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t s : ℕ → ℕ) : Prop :=
+  ∀ input, tm.runs_in_time_and_space input (f input) (t input.length) (s input.length)
+
+def TM.computes_in_o_time_and_space {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t s : Bound) : Prop :=
+  ∃ t' s', Bound.le t' t ∧ Bound.le s' s ∧ tm.computes_in_time_and_space f t' s'
+
+--- Monotonicity of computes_in_o_time_and_space wrt time.
+lemma TM.computes_in_o_time_and_space.monotone_time {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (s : Bound) :
+  Monotone (tm.computes_in_o_time_and_space f · s) := by
+  unfold Monotone
+  intro t₁ t₂ h_le
+  simp only [le_Prop_eq]
+  intro h
+  obtain ⟨t', s', h_le₁, h_le₂, h_exact⟩ := h
+  use t', s'
+  have h_t_le : t' ≼ t₂ := by calc
+    t' ≼ t₁ := h_le₁
+    _ ≤ t₂ := by sorry
+  simp [h_t_le, h_le₂, h_exact]
+
+--- Monotonicity of computes_in_o_time_and_space wrt space.
+lemma TM.computes_in_o_time_and_space.monotone_space {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : Bound) :
+  Monotone (tm.computes_in_o_time_and_space f t ·) := by
+  sorry
 
 --- Functions computable in deterministic space `s`.
 def dspace {Γ} (s : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
   Finite Γ ∧
-  ∃ (k c : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
-    Finite S ∧ ∀ input : List Γ,
-    ∃ t : ℕ, tm.runs_in_space input (f input) t (c * (s input.length) + c)
+  ∃ (k : ℕ) (S : Type) (t : ℕ → ℕ) (tm : TM k.succ S (Option Γ)),
+    Finite S ∧ tm.computes_in_o_time_and_space f t s
 
 --- Functions on the natural numbers, computable in deterministic time `t`.
 def dtime_nat (t : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
