@@ -309,7 +309,8 @@ lemma Bound.le.le_of_le {f g : ℕ → ℕ} (h_gh : f ≤ g) : Bound.le ⟨ f �
 @[trans]
 theorem Bounds.trans_is_bounds_le {f g h : Bound}
     (h_le₁ : f ≼ g) (h_le₂ : g ≤ h) : f ≼ h := by
-  have h : g ≼ h := by sorry
+  -- g ≤ h is the same as g ≼ h because ≤ is defined as Bound.le in the Preorder instance
+  have h : g ≼ h := h_le₂
   exact Bound.le.trans _ _ _ h_le₁ h
 
 instance : Trans (· ≼ ·) (· ≤ ·) (· ≼ ·) where
@@ -337,20 +338,29 @@ lemma TM.computes_in_o_time_and_space.monotone_time {k : Nat} {S} {Γ}
   use t', s'
   have h_t_le : t' ≼ t₂ := by calc
     t' ≼ t₁ := h_le₁
-    _ ≤ t₂ := by sorry
+    _ ≤ t₂ := h_le
   simp [h_t_le, h_le₂, h_exact]
 
 --- Monotonicity of computes_in_o_time_and_space wrt space.
 lemma TM.computes_in_o_time_and_space.monotone_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : Bound) :
   Monotone (tm.computes_in_o_time_and_space f t ·) := by
-  sorry
+  unfold Monotone
+  intro s₁ s₂ h_le
+  simp only [le_Prop_eq]
+  intro h
+  obtain ⟨t', s', h_le₁, h_le₂, h_exact⟩ := h
+  use t', s'
+  have h_s_le : s' ≼ s₂ := by calc
+    s' ≼ s₁ := h_le₂
+    _ ≤ s₂ := h_le
+  simp [h_le₁, h_s_le, h_exact]
 
 --- Functions computable in deterministic space `s`.
 def dspace {Γ} (s : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
   Finite Γ ∧
   ∃ (k : ℕ) (S : Type) (t : ℕ → ℕ) (tm : TM k.succ S (Option Γ)),
-    Finite S ∧ tm.computes_in_o_time_and_space f t s
+    Finite S ∧ tm.computes_in_o_time_and_space f ⟨t⟩ ⟨s⟩
 
 --- Functions on the natural numbers, computable in deterministic time `t`.
 def dtime_nat (t : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
