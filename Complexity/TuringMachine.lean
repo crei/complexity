@@ -233,7 +233,7 @@ def TM.runs_in_time_and_space {k : Nat} {S} {Γ}
 
 lemma TM.runs_in_time_and_space_monotone_time {k : ℕ} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (s : Nat) :
-    Monotone (fun t => tm.runs_in_time_and_space input output t s) := by
+    Monotone (tm.runs_in_time_and_space input output · s) := by
   unfold Monotone
   intro t₁ t₂ h_le
   simp only [le_Prop_eq]
@@ -247,7 +247,7 @@ lemma TM.runs_in_time_and_space_monotone_time {k : ℕ} {S} {Γ}
 
 lemma TM.run_in_time_and_space_monotone_space {k : ℕ} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) :
-    Monotone (fun s => tm.runs_in_time_and_space input output t s) := by
+    Monotone (tm.runs_in_time_and_space input output t ·) := by
   unfold Monotone
   intro s₁ s₂ h_le
   simp only [le_Prop_eq]
@@ -262,6 +262,7 @@ lemma TM.run_in_time_and_space_monotone_space {k : ℕ} {S} {Γ}
         _ ≤ s₂ := h_le
     · exact h_exact.right
 
+--- A resource bound in terms of a function from ℕ to ℕ
 structure Bound where
   to_fun : ℕ → ℕ
 
@@ -277,12 +278,12 @@ def Bound.le (f g : Bound) : Prop := bound_le f g
 infix:50 " ≼ " => Bound.le
 
 @[refl]
-lemma Bound.le.refl (f : Bound) : le f f := by
+lemma Bound.le.refl (f : Bound) : f ≼ f := by
   use 1; simp
 
 @[trans]
 lemma Bound.le.trans (f g h : Bound)
-  (h_fg : le f g) (h_gh : le g h) : le f h := by
+  (h_fg : f ≼ g) (h_gh : g ≼ h) : f ≼ h := by
   obtain ⟨c₁, h_fg⟩ := h_fg
   obtain ⟨c₂, h_gh⟩ := h_gh
   use c₁ * c₂ + c₁
@@ -309,9 +310,7 @@ lemma Bound.le.le_of_le {f g : ℕ → ℕ} (h_gh : f ≤ g) : Bound.le ⟨ f �
 @[trans]
 theorem Bounds.trans_is_bounds_le {f g h : Bound}
     (h_le₁ : f ≼ g) (h_le₂ : g ≤ h) : f ≼ h := by
-  -- g ≤ h is the same as g ≼ h because ≤ is defined as Bound.le in the Preorder instance
-  have h : g ≼ h := h_le₂
-  exact Bound.le.trans _ _ _ h_le₁ h
+  exact Bound.le.trans _ _ _ h_le₁ h_le₂
 
 instance : Trans (· ≼ ·) (· ≤ ·) (· ≼ ·) where
   trans := Bounds.trans_is_bounds_le
@@ -324,7 +323,7 @@ def TM.computes_in_time_and_space {k : Nat} {S} {Γ}
 
 def TM.computes_in_o_time_and_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t s : Bound) : Prop :=
-  ∃ t' s', Bound.le t' t ∧ Bound.le s' s ∧ tm.computes_in_time_and_space f t' s'
+  ∃ t' s', t' ≼ t ∧ s' ≼ s ∧ tm.computes_in_time_and_space f t' s'
 
 --- Monotonicity of computes_in_o_time_and_space wrt time.
 lemma TM.computes_in_o_time_and_space.monotone_time {k : Nat} {S} {Γ}
