@@ -106,3 +106,16 @@ lemma Tape.mk₁_default {Γ} [Inhabited Γ] :
 @[simp]
 lemma Tape.write_mk₁_nil {Γ} [Inhabited Γ] (c : Γ) :
   Turing.Tape.write c (Turing.Tape.mk₁ []) = Turing.Tape.mk₁ [c] := by rfl
+
+@[simp]
+lemma Tape.move_right_append {Γ} [Inhabited Γ] (A B C : List Γ) :
+  (Turing.Tape.move .right)^[B.length] (Turing.Tape.mk₂ A (B ++ C)) =
+     Turing.Tape.mk₂ (B.reverse ++ A) C := by
+  induction B generalizing A with
+  | nil => rfl
+  | cons b B ih =>
+    calc (Turing.Tape.move Turing.Dir.right)^[(b :: B).length] (Turing.Tape.mk₂ A (b :: B ++ C))
+        = (Turing.Tape.move Turing.Dir.right)^[B.length] (Turing.Tape.mk₂ (b :: A) (B ++ C)) := by
+          simp [Turing.Tape.mk₂]
+      _ = Turing.Tape.mk₂ (B.reverse ++ (b :: A)) C := by rw [ih]
+      _ = Turing.Tape.mk₂ ((b :: B).reverse ++ A) C := by simp
