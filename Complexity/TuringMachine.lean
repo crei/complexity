@@ -177,8 +177,7 @@ def update_head_position (pos : ℤ) (move : Option Turing.Dir) : ℤ :=
   | some Turing.Dir.right => pos + 1
 
 lemma update_head_position_change_at_most_one (pos : ℤ) (move : Option Turing.Dir) :
-  update_head_position pos move = pos - 1 ∨ update_head_position pos move = pos ∨
-  update_head_position pos move = pos + 1 := by
+  |(update_head_position pos move) - pos| ≤ 1 := by
   cases move with
   | none => unfold update_head_position; simp
   | some dir => cases dir <;> unfold update_head_position <;> simp
@@ -192,6 +191,38 @@ def head_position {k : Nat} {S} {Γ} [Inhabited Γ]
       let tape_op := (σ prev_conf.state fun j => (prev_conf.tapes j).head).2 i
       update_head_position (head_position conf σ i n) tape_op.2
 
+lemma head_position_change_at_most_one {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
+  |(head_position conf σ i (n + 1)) - (head_position conf σ i n)| ≤ 1 := by
+  conv in head_position _ _ _ (n + 1) => unfold head_position
+  simp [update_head_position_change_at_most_one]
+
+lemma head_position_variability (f : ℕ → ℤ) (m n : ℕ)
+  (h_var : ∀ n : ℕ, |f (n + 1) - f n| ≤ 1) :
+  |f (m + n) - f m| ≤ n := by
+  revert m
+  refine Nat.strong_induction_on n ?_
+  intro n ih m
+  cases n with
+  | zero => simp
+  | succ n =>
+    calc
+      abs (f (m + n + 1) - f m)
+          = abs ((f (m + n + 1) - f (m + n)) - (f m - f (m + n))) := by ring_nf
+        _ ≤ abs (f (m + n + 1) - f (m + n)) + abs (f m - f (m + n)) := by sorry
+        _ = abs (f (m + n + 1) - f (m + n)) + abs (f (m + n) - f m) := by sorry
+        _ ≤ 1 + n := by
+          gcongr
+          · exact h_var (m + n)
+          · simp [ih]
+        _ = n + 1 := by sorry
+
+lemma head_position_variability' (f : ℕ → ℤ) (m₁ m₂ : ℕ)
+  (h_var : ∀ n : ℕ, |f (n + 1) - f n| ≤ 1) :
+  |f m₁ - f m₂| ≤ abs (Int.ofNat m₁ - Int.ofNat m₂) := by
+  sorry
+  -- Proof strategy: Use head_position_variability on min m₁ m₂ and abs (m₁ - m₂)
+
 --- Space required for tape `i` up until step `n`
 def Configuration.tape_space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) : ℕ :=
@@ -199,35 +230,27 @@ def Configuration.tape_space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   have h_nonempty : head_positions.Nonempty := by simp [head_positions]
   ((head_positions.max' h_nonempty) - (head_positions.min' h_nonempty) + 1).toNat
 
-lemma tape_space_single_step {k : ℕ} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
-  conf.tape_space_n_steps σ i (n + 1) ≤ conf.tape_space_n_steps σ i n + 1 := by
-  unfold Configuration.tape_space_n_steps
-  let head_positions := (Finset.range (n + 1)).image (head_position conf σ i)
-  let head_positions' := (Finset.range (n + 1 + 1)).image (head_position conf σ i)
-  have h_insert : head_positions' = insert (head_position conf σ i (n + 1)) head_positions := by
-    unfold head_positions'
-    rw [Finset.range_add_one, Finset.image_insert]
-  sorry
-
 lemma tape_space_n_steps_linear_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
-  conf.tape_space_n_steps σ i n ≤ n + 1 := by
-  induction n with
-  | zero => simp [Configuration.tape_space_n_steps]
-  | succ n ih => calc
-      conf.tape_space_n_steps σ i (n + 1)
-          ≤ conf.tape_space_n_steps σ i n + 1 := by exact tape_space_single_step conf σ i n
-        _ ≤ (n + 1) + 1 := by simp only [add_le_add_iff_right, ih]
-        _ = n + 2 := by ring
+  conf.tape_space_n_steps σ i n ≤ n + 1 := by sorry
+  -- proof idea:
+  -- get the step numbers for the max and min: m₁, m₂.
+  -- then the goal is to prove head_position conf σ m₁ - head_position conf σ m₂ + 1 ≤ n + 1
+  -- the lhs is equal to abs (head_position conf σ m₁ - head_position conf σ m₂) + 1
+  -- now apply head_position_variability together with head_position_change_at_most_one
 
-def Configuration.space_n_steps' {k : Nat} {S} {Γ} [Inhabited Γ]
+def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (n : Nat) : ℕ :=
   ∑ i, conf.tape_space_n_steps σ i n
 
 lemma Configuration.space_n_steps_upper_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (n : Nat) :
-  conf.space_n_steps σ n ≤ k * (n + 1) := by sorry
+  conf.space_n_steps σ n ≤ k * (n + 1) := by
+  calc
+    conf.space_n_steps σ n
+        = ∑ i, conf.tape_space_n_steps σ i n := by rfl
+      _ ≤ ∑ i, (n + 1) := by apply Finset.sum_le_sum; simp [tape_space_n_steps_linear_bound]
+      _ = k * (n + 1) := by simp
 
 def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
