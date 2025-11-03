@@ -169,55 +169,65 @@ def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
   ∃ (k : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
     Finite S ∧ tm.computes_in_o_time f t
 
---- Structure to track position and bounds for a single tape head
-structure PositionState where
-  pos : ℤ        -- current position of tape head
-  min_pos : ℤ    -- minimum position visited
-  max_pos : ℤ    -- maximum position visited
-
 --- Update position based on a move operation
-def update_position (pos : ℤ) (move : Option Turing.Dir) : ℤ :=
+def update_head_position (pos : ℤ) (move : Option Turing.Dir) : ℤ :=
   match move with
   | none => pos
   | some Turing.Dir.left => pos - 1
   | some Turing.Dir.right => pos + 1
 
---- Update position state after a move operation
-def update_position_state (state : PositionState) (move : Option Turing.Dir) : PositionState :=
-  let new_pos := update_position state.pos move
-  {
-    pos := new_pos,
-    min_pos := min state.min_pos new_pos,
-    max_pos := max state.max_pos new_pos
-  }
+lemma update_head_position_change_at_most_one (pos : ℤ) (move : Option Turing.Dir) :
+  update_head_position pos move = pos - 1 ∨ update_head_position pos move = pos ∨
+  update_head_position pos move = pos + 1 := by
+  cases move with
+  | none => unfold update_head_position; simp
+  | some dir => cases dir <;> unfold update_head_position <;> simp
 
---- Initial position state (position starts at 0)
-def initial_position_state : PositionState :=
-  {
-    pos := 0,
-    min_pos := 0,
-    max_pos := 0
-  }
-
---- Compute position state after n steps, inductively
-def position_state_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Nat → (Fin k → PositionState)
-  | 0 => fun _ => initial_position_state
+--- Position of tape head `i` over time.
+def head_position {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) : Nat → ℤ
+  | 0 => 0
   | Nat.succ n =>
-      let prev_states := position_state_n_steps σ conf n
       let prev_conf := σ.n_steps conf n
-      let (_, tapeOps) := σ prev_conf.state fun i => (prev_conf.tapes i).head
-      -- Update position state for each tape based on its move operation
-      fun i => update_position_state (prev_states i) (tapeOps i).2
+      let tape_op := (σ prev_conf.state fun j => (prev_conf.tapes j).head).2 i
+      update_head_position (head_position conf σ i n) tape_op.2
 
---- Total space complexity: sum over all tapes of (max_pos - min_pos + 1)
-def space_from_position_states {k : Nat} (states : Fin k → PositionState) : ℕ :=
-  ∑ i, ((states i).max_pos - (states i).min_pos + 1).toNat
+--- Space required for tape `i` up until step `n`
+def Configuration.tape_space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) : ℕ :=
+  let head_positions := (Finset.range (n + 1)).image (head_position conf σ i)
+  have h_nonempty : head_positions.Nonempty := by simp [head_positions]
+  ((head_positions.max' h_nonempty) - (head_positions.min' h_nonempty) + 1).toNat
 
---- Space complexity for a configuration after n steps
-def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) : ℕ :=
-  space_from_position_states (position_state_n_steps σ conf n)
+lemma tape_space_single_step {k : ℕ} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
+  conf.tape_space_n_steps σ i (n + 1) ≤ conf.tape_space_n_steps σ i n + 1 := by
+  unfold Configuration.tape_space_n_steps
+  let head_positions := (Finset.range (n + 1)).image (head_position conf σ i)
+  let head_positions' := (Finset.range (n + 1 + 1)).image (head_position conf σ i)
+  have h_insert : head_positions' = insert (head_position conf σ i (n + 1)) head_positions := by
+    unfold head_positions'
+    rw [Finset.range_add_one, Finset.image_insert]
+  sorry
+
+lemma tape_space_n_steps_linear_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
+  conf.tape_space_n_steps σ i n ≤ n + 1 := by
+  induction n with
+  | zero => simp [Configuration.tape_space_n_steps]
+  | succ n ih => calc
+      conf.tape_space_n_steps σ i (n + 1)
+          ≤ conf.tape_space_n_steps σ i n + 1 := by exact tape_space_single_step conf σ i n
+        _ ≤ (n + 1) + 1 := by simp only [add_le_add_iff_right, ih]
+        _ = n + 2 := by ring
+
+def Configuration.space_n_steps' {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (n : Nat) : ℕ :=
+  ∑ i, conf.tape_space_n_steps σ i n
+
+lemma Configuration.space_n_steps_upper_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (n : Nat) :
+  conf.space_n_steps σ n ≤ k * (n + 1) := by sorry
 
 def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
@@ -225,7 +235,7 @@ def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ}
   tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ (output.map some)) ∧
   -- TODO and actually we need that the stop state is not reached earlier.
   conf.state = tm.stopState ∧
-  Configuration.space_n_steps tm.transition (TM.initial_configuration tm input) t = s
+  (TM.initial_configuration tm input).space_n_steps tm.transition t = s
 
 def TM.runs_in_time_and_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
