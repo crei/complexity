@@ -238,12 +238,38 @@ def Configuration.tape_space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
 
 lemma tape_space_n_steps_linear_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
-  conf.tape_space_n_steps σ i n ≤ n + 1 := by sorry
+  conf.tape_space_n_steps σ i n ≤ n + 1 := by
   -- proof idea:
   -- get the step numbers for the max and min: m₁, m₂.
   -- then the goal is to prove head_position conf σ m₁ - head_position conf σ m₂ + 1 ≤ n + 1
   -- the lhs is equal to abs (head_position conf σ m₁ - head_position conf σ m₂) + 1
   -- now apply head_position_variability together with head_position_change_at_most_one
+  unfold Configuration.tape_space_n_steps
+  simp only [Int.toNat_le]
+  -- Get max and min exist in the range
+  let head_positions := (Finset.range (n + 1)).image (head_position conf σ i)
+  have h_nonempty : head_positions.Nonempty := by simp [head_positions]
+  have h_max_mem := Finset.max'_mem head_positions h_nonempty
+  have h_min_mem := Finset.min'_mem head_positions h_nonempty
+  simp only [head_positions, Finset.mem_image, Finset.mem_range] at h_max_mem h_min_mem
+  obtain ⟨m₁, hm₁_range, hm₁_eq⟩ := h_max_mem
+  obtain ⟨m₂, hm₂_range, hm₂_eq⟩ := h_min_mem
+  have min_le_max : head_positions.min' h_nonempty ≤ head_positions.max' h_nonempty := by
+    apply Finset.min'_le_max'
+  -- Apply head_position_variability'
+  have h_var := head_position_change_at_most_one conf σ i
+  have pos_bound := head_position_variability' (head_position conf σ i) m₁ m₂ h_var
+  rw [hm₁_eq, hm₂_eq] at pos_bound
+  -- Both m₁ and m₂ are in range [0, n]
+  have hm₁_le : m₁ ≤ n := Nat.lt_succ_iff.mp hm₁_range
+  have hm₂_le : m₂ ≤ n := Nat.lt_succ_iff.mp hm₂_range
+  have : abs (Int.ofNat m₁ - Int.ofNat m₂) ≤ n := by sorry
+  calc
+    head_positions.max' h_nonempty - head_positions.min' h_nonempty + 1
+        = abs (head_positions.max' h_nonempty - head_positions.min' h_nonempty) + 1 := by
+          rw [abs_of_nonneg (by simp [min_le_max])]
+      _ ≤ abs (Int.ofNat m₁ - Int.ofNat m₂) + 1 := by gcongr
+      _ ≤ ↑n + 1 := by omega
 
 def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (n : Nat) : ℕ :=
