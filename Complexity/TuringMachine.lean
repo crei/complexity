@@ -239,11 +239,6 @@ def Configuration.tape_space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
 lemma tape_space_n_steps_linear_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
   conf.tape_space_n_steps σ i n ≤ n + 1 := by
-  -- proof idea:
-  -- get the step numbers for the max and min: m₁, m₂.
-  -- then the goal is to prove head_position conf σ m₁ - head_position conf σ m₂ + 1 ≤ n + 1
-  -- the lhs is equal to abs (head_position conf σ m₁ - head_position conf σ m₂) + 1
-  -- now apply head_position_variability together with head_position_change_at_most_one
   unfold Configuration.tape_space_n_steps
   simp only [Int.toNat_le]
   -- Get max and min exist in the range
@@ -263,7 +258,18 @@ lemma tape_space_n_steps_linear_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
   -- Both m₁ and m₂ are in range [0, n]
   have hm₁_le : m₁ ≤ n := Nat.lt_succ_iff.mp hm₁_range
   have hm₂_le : m₂ ≤ n := Nat.lt_succ_iff.mp hm₂_range
-  have : abs (Int.ofNat m₁ - Int.ofNat m₂) ≤ n := by sorry
+  have : abs (Int.ofNat m₁ - Int.ofNat m₂) ≤ n := by
+    have : abs (Int.ofNat m₁ - Int.ofNat m₂) ≤ max m₁ m₂ := by
+      by_cases h : m₁ ≤ m₂
+      · rw [← abs_neg, abs_of_nonneg]
+        simp [h]
+        simpa [Int.sub_nonneg] using h
+      · rw [abs_of_nonneg]
+        simp
+        simp [Int.sub_nonneg]
+        let h := Nat.le_of_not_le h
+        simp_all only [Int.ofNat_eq_coe]
+    omega
   calc
     head_positions.max' h_nonempty - head_positions.min' h_nonempty + 1
         = abs (head_positions.max' h_nonempty - head_positions.min' h_nonempty) + 1 := by
