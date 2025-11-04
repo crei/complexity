@@ -108,7 +108,6 @@ def tape_equiv_up_to_shift {Γ} [Inhabited Γ]
   (t1 t2 : Turing.Tape Γ) : Prop :=
   ∃ shift : ℕ, ∃ dir, t2 = (Turing.Tape.move dir)^[shift] t1
 
--- TODO remove
 def TM.runs_in_exact_time {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
   -- TODO and actually we need that the stop state is not reached earlier.
@@ -116,116 +115,149 @@ def TM.runs_in_exact_time {k : Nat} {S} {Γ}
   tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ (output.map some)) ∧
   conf.state = tm.stopState
 
--- TODO remove
 def TM.runs_in_time {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
   ∃ t' ≤ t, tm.runs_in_exact_time input output t'
 
--- TODO remove
 lemma TM.runs_in_time_monotone {k : ℕ} {S} {Γ}
-  (tm : TM k.succ S (Option Γ))
-  (t₁ t₂ : ℕ)
-  (h_le : t₁ ≤ t₂)
-  (input : List Γ) (output : List Γ) (h : tm.runs_in_time input output t₁) :
-  tm.runs_in_time input output t₂ := by
-  obtain ⟨t', h_t'le, h_exact⟩ := h
+  (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) :
+  Monotone (tm.runs_in_time input output) := by
+  unfold Monotone
+  intro t₁ t₂ h_le h_runs
+  obtain ⟨t', h_t'le, h_exact⟩ := h_runs
   use t'
   constructor
   · calc t' ≤ t₁ := h_t'le
         _ ≤ t₂ := h_le
   · exact h_exact
 
--- TODO remove
-def TM.computes_in_o_time {k : Nat} {S} {Γ}
-  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : ℕ → ℕ) : Prop :=
-  ∃ c : ℕ, ∀ input, tm.runs_in_time input (f input) (c * t input.length + c)
-
--- TODO prove equivalent for computes_in_o_time_and_space
-lemma computes_in_o_time_related {k : Nat} {S} {Γ}
-  (t₁ : ℕ → ℕ) (t₂ : ℕ → ℕ)
-  (h_related : ∃ c : ℕ, t₁ ≤ c * t₂ + c)
-  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ)
-  (h : tm.computes_in_o_time f t₁) :
-  tm.computes_in_o_time f t₂ := by
-  obtain ⟨c', h_related⟩ := h_related
-  obtain ⟨c, h⟩ := h
-  unfold TM.computes_in_o_time
-  let c'' := c * c' + c
-  use c''
-  intro input
-  let n := input.length
-  refine TM.runs_in_time_monotone tm
-    (c * (t₁ n) + c) (c'' * (t₂ n) + c'') ?_ input (f input) (h input)
-  calc
-    c * (t₁ n) + c ≤ c * (c' * (t₂ n) + c') + c := by gcongr; exact h_related n
-    _ = (c * c') * (t₂ n) + (c * c' + c) := by ring
-    _ ≤ (c * c' + c) * (t₂ n) + (c * c' + c) := by gcongr; exact Nat.le_add_right _ _
-    _ = c'' * (t₂ n) + c'' := by rfl
-
--- TODO remove - replace with definition through computes_in_o_time_and_space
---- Functions computable in deterministic time `t`.
-def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
-  Finite Γ ∧
-  ∃ (k : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
-    Finite S ∧ tm.computes_in_o_time f t
-
---- Structure to track position and bounds for a single tape head
-structure PositionState where
-  pos : ℤ        -- current position of tape head
-  min_pos : ℤ    -- minimum position visited
-  max_pos : ℤ    -- maximum position visited
-
 --- Update position based on a move operation
-def update_position (pos : ℤ) (move : Option Turing.Dir) : ℤ :=
+def update_head_position (pos : ℤ) (move : Option Turing.Dir) : ℤ :=
   match move with
   | none => pos
   | some Turing.Dir.left => pos - 1
   | some Turing.Dir.right => pos + 1
 
---- Update position state after a move operation
-def update_position_state (state : PositionState) (move : Option Turing.Dir) : PositionState :=
-  let new_pos := update_position state.pos move
-  {
-    pos := new_pos,
-    min_pos := min state.min_pos new_pos,
-    max_pos := max state.max_pos new_pos
-  }
+lemma update_head_position_change_at_most_one (pos : ℤ) (move : Option Turing.Dir) :
+  |(update_head_position pos move) - pos| ≤ 1 := by
+  cases move with
+  | none => unfold update_head_position; simp
+  | some dir => cases dir <;> unfold update_head_position <;> simp
 
---- Initial position state (position starts at 0)
-def initial_position_state : PositionState :=
-  {
-    pos := 0,
-    min_pos := 0,
-    max_pos := 0
-  }
-
---- Compute position state after n steps, inductively
-def position_state_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) : Nat → (Fin k → PositionState)
-  | 0 => fun _ => initial_position_state
+--- Position of tape head `i` over time.
+def head_position {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) : Nat → ℤ
+  | 0 => 0
   | Nat.succ n =>
-      let prev_states := position_state_n_steps σ conf n
       let prev_conf := σ.n_steps conf n
-      let (_, tapeOps) := σ prev_conf.state fun i => (prev_conf.tapes i).head
-      -- Update position state for each tape based on its move operation
-      fun i => update_position_state (prev_states i) (tapeOps i).2
+      let tape_op := (σ prev_conf.state fun j => (prev_conf.tapes j).head).2 i
+      update_head_position (head_position conf σ i n) tape_op.2
 
---- Total space complexity: sum over all tapes of (max_pos - min_pos + 1)
-def space_from_position_states {k : Nat} (states : Fin k → PositionState) : ℕ :=
-  ∑ i, ((states i).max_pos - (states i).min_pos + 1).toNat
+lemma head_position_change_at_most_one {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
+  |(head_position conf σ i (n + 1)) - (head_position conf σ i n)| ≤ 1 := by
+  conv in head_position _ _ _ (n + 1) => unfold head_position
+  simp [update_head_position_change_at_most_one]
 
---- Space complexity for a configuration after n steps
+lemma head_position_variability (f : ℕ → ℤ) (m n : ℕ)
+  (h_var : ∀ n : ℕ, |f (n + 1) - f n| ≤ 1) :
+  |f (m + n) - f m| ≤ n := by
+  revert m
+  refine Nat.strong_induction_on n ?_
+  intro n ih m
+  cases n with
+  | zero => simp
+  | succ n =>
+    calc
+      abs (f (m + n + 1) - f m)
+          = abs ((f (m + n + 1) - f (m + n)) + (f (m + n) - f m)) := by ring_nf
+        _ ≤ abs (f (m + n + 1) - f (m + n)) + abs (f (m + n) - f m) := abs_add_le _ _
+        _ ≤ 1 + n := by
+          gcongr
+          · exact h_var (m + n)
+          · simp [ih]
+        _ = n + 1 := by ring
+
+lemma head_position_variability' (f : ℕ → ℤ) (m₁ m₂ : ℕ)
+  (h_var : ∀ n : ℕ, |f (n + 1) - f n| ≤ 1) :
+  |f m₁ - f m₂| ≤ abs (Int.ofNat m₁ - Int.ofNat m₂) := by
+  wlog h : m₁ ≤ m₂
+  · rw [abs_sub_comm (f m₁), abs_sub_comm (Int.ofNat m₁)]
+    exact this f m₂ m₁ h_var (Nat.le_of_not_le h)
+  · have pos_result := head_position_variability f m₁ (m₂ - m₁) h_var
+    rw [Nat.add_sub_of_le h] at pos_result
+    simp only [Int.ofNat_sub h, abs_sub_comm] at pos_result
+    rw [abs_sub_comm (Int.ofNat m₁)]
+    calc |f m₁ - f m₂| ≤ ↑m₂ - ↑m₁  := pos_result
+      _ ≤ |↑m₂ - ↑m₁| := by simp only [le_abs_self]
+
+--- Space required for tape `i` up until step `n`
+def Configuration.tape_space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) : ℕ :=
+  let head_positions := (Finset.range (n + 1)).image (head_position conf σ i)
+  have h_nonempty : head_positions.Nonempty := by simp [head_positions]
+  ((head_positions.max' h_nonempty) - (head_positions.min' h_nonempty) + 1).toNat
+
+--- Upper space bound for a given time limit, for a single tape.
+lemma tape_space_n_steps_linear_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
+  conf.tape_space_n_steps σ i n ≤ n + 1 := by
+  unfold Configuration.tape_space_n_steps
+  simp only [Int.toNat_le]
+  -- Get max and min exist in the range
+  let head_positions := (Finset.range (n + 1)).image (head_position conf σ i)
+  have h_nonempty : head_positions.Nonempty := by simp [head_positions]
+  have h_max_mem := Finset.max'_mem head_positions h_nonempty
+  have h_min_mem := Finset.min'_mem head_positions h_nonempty
+  simp only [head_positions, Finset.mem_image, Finset.mem_range] at h_max_mem h_min_mem
+  obtain ⟨m₁, hm₁_range, hm₁_eq⟩ := h_max_mem
+  obtain ⟨m₂, hm₂_range, hm₂_eq⟩ := h_min_mem
+  have min_le_max : head_positions.min' h_nonempty ≤ head_positions.max' h_nonempty := by
+    apply Finset.min'_le_max'
+  -- Apply head_position_variability'
+  have h_var := head_position_change_at_most_one conf σ i
+  have pos_bound := head_position_variability' (head_position conf σ i) m₁ m₂ h_var
+  rw [hm₁_eq, hm₂_eq] at pos_bound
+  -- Both m₁ and m₂ are in range [0, n]
+  have hm₁_le : m₁ ≤ n := Nat.lt_succ_iff.mp hm₁_range
+  have hm₂_le : m₂ ≤ n := Nat.lt_succ_iff.mp hm₂_range
+  have : abs (Int.ofNat m₁ - Int.ofNat m₂) ≤ n := by
+    have : abs (Int.ofNat m₁ - Int.ofNat m₂) ≤ max m₁ m₂ := by
+      by_cases h : m₁ ≤ m₂
+      · rw [← abs_neg, abs_of_nonneg]
+        simp [h]
+        simpa [Int.sub_nonneg] using h
+      · rw [abs_of_nonneg]
+        simp
+        simp [Int.sub_nonneg]
+        let h := Nat.le_of_not_le h
+        simp_all only [Int.ofNat_eq_coe]
+    omega
+  calc
+    head_positions.max' h_nonempty - head_positions.min' h_nonempty + 1
+        = abs (head_positions.max' h_nonempty - head_positions.min' h_nonempty) + 1 := by
+          rw [abs_of_nonneg (by simp [min_le_max])]
+      _ ≤ abs (Int.ofNat m₁ - Int.ofNat m₂) + 1 := by gcongr
+      _ ≤ ↑n + 1 := by omega
+
 def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) : ℕ :=
-  space_from_position_states (position_state_n_steps σ conf n)
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (n : Nat) : ℕ :=
+  ∑ i, conf.tape_space_n_steps σ i n
+
+--- Upper space bound for a given time limit.
+lemma Configuration.space_n_steps_upper_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (n : Nat) :
+  conf.space_n_steps σ n ≤ k * (n + 1) := by
+  calc
+    conf.space_n_steps σ n
+        = ∑ i, conf.tape_space_n_steps σ i n := by rfl
+      _ ≤ ∑ i, (n + 1) := by apply Finset.sum_le_sum; simp [tape_space_n_steps_linear_bound]
+      _ = k * (n + 1) := by simp
 
 def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
-  let conf := tm.transition.n_steps (TM.initial_configuration tm input) t
-  tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ (output.map some)) ∧
-  -- TODO and actually we need that the stop state is not reached earlier.
-  conf.state = tm.stopState ∧
-  Configuration.space_n_steps tm.transition (TM.initial_configuration tm input) t = s
+  tm.runs_in_exact_time input output t ∧
+  (TM.initial_configuration tm input).space_n_steps tm.transition t = s
 
 def TM.runs_in_time_and_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
@@ -317,6 +349,28 @@ instance : Trans (· ≼ ·) (· ≤ ·) (· ≼ ·) where
 
 def Bound.degree (f : Bound) := { g : ℕ → ℕ // Bound.le ⟨ g ⟩ f }
 
+def TM.computes_in_time {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : ℕ → ℕ) : Prop :=
+  ∀ input, tm.runs_in_time input (f input) (t input.length)
+
+def TM.computes_in_o_time {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : Bound) : Prop :=
+  ∃ t', t' ≼ t ∧ tm.computes_in_time f t'
+
+lemma TM.computes_in_o_time.monotone {k : ℕ} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) :
+  Monotone (tm.computes_in_o_time f) := by
+  unfold Monotone
+  intro t₁ t₂ h_le
+  simp only [le_Prop_eq]
+  intro h
+  obtain ⟨t', h_le', h_exact⟩ := h
+  use t'
+  have h_t_le : t' ≼ t₂ := by calc
+    t' ≼ t₁ := h_le'
+    _ ≤ t₂ := h_le
+  simp [h_t_le, h_exact]
+
 def TM.computes_in_time_and_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t s : ℕ → ℕ) : Prop :=
   ∀ input, tm.runs_in_time_and_space input (f input) (t input.length) (s input.length)
@@ -354,6 +408,12 @@ lemma TM.computes_in_o_time_and_space.monotone_space {k : Nat} {S} {Γ}
     s' ≼ s₁ := h_le₂
     _ ≤ s₂ := h_le
   simp [h_le₁, h_s_le, h_exact]
+
+--- Functions computable in deterministic time `t`.
+def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
+  Finite Γ ∧
+  ∃ (k : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
+    Finite S ∧ tm.computes_in_o_time f ⟨t⟩
 
 --- Functions computable in deterministic space `s`.
 def dspace {Γ} (s : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=

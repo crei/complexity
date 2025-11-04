@@ -127,8 +127,10 @@ theorem succ_in_linear_time_via_rev_dya (n : ℕ) : succ_tm.runs_in_time
   simp [rev_dya_option]
 
 theorem dya_succ_in_linear_time :
-    succ_tm.computes_in_o_time (rev_dya ∘ Nat.succ ∘ (Function.invFun rev_dya)) id := by
-  use 2
+    succ_tm.computes_in_o_time (rev_dya ∘ Nat.succ ∘ (Function.invFun rev_dya)) ⟨id⟩ := by
+  use ⟨fun n => 2 * n + 2⟩
+  have h_bound : ⟨fun n => 2 * n + 2⟩ ≼ ⟨id⟩ := by use 2; intro n; simp
+  simp [h_bound]
   intro input
   let n := rev_dya.invFun input
   have hn : rev_dya n = input := by
@@ -142,12 +144,7 @@ theorem dya_succ_in_linear_time :
         _ = (2 * (n + 1)).log2 := by ring_nf
         _ = (n + 1).log2 + 1 := by simp [Nat.log2_two_mul]
         _ ≤ 2 * (n + 1).log2 + 1 := by linarith
-  exact succ_tm.runs_in_time_monotone
-    ((n + 2).log2 + 1)
-    (2 * (rev_dya n).length + 2)
-    h_len
-    (rev_dya n)
-    (rev_dya n.succ)
+  exact succ_tm.runs_in_time_monotone (rev_dya n) (rev_dya n.succ) h_len
     (succ_in_linear_time_via_rev_dya n)
 
 -- Main theorem: successor is computable in linear time
