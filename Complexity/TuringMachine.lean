@@ -208,20 +208,26 @@ lemma head_position_variability (f : ℕ → ℤ) (m n : ℕ)
   | succ n =>
     calc
       abs (f (m + n + 1) - f m)
-          = abs ((f (m + n + 1) - f (m + n)) - (f m - f (m + n))) := by ring_nf
-        _ ≤ abs (f (m + n + 1) - f (m + n)) + abs (f m - f (m + n)) := by sorry
-        _ = abs (f (m + n + 1) - f (m + n)) + abs (f (m + n) - f m) := by sorry
+          = abs ((f (m + n + 1) - f (m + n)) + (f (m + n) - f m)) := by ring_nf
+        _ ≤ abs (f (m + n + 1) - f (m + n)) + abs (f (m + n) - f m) := abs_add_le _ _
         _ ≤ 1 + n := by
           gcongr
           · exact h_var (m + n)
           · simp [ih]
-        _ = n + 1 := by sorry
+        _ = n + 1 := by ring
 
 lemma head_position_variability' (f : ℕ → ℤ) (m₁ m₂ : ℕ)
   (h_var : ∀ n : ℕ, |f (n + 1) - f n| ≤ 1) :
   |f m₁ - f m₂| ≤ abs (Int.ofNat m₁ - Int.ofNat m₂) := by
-  sorry
-  -- Proof strategy: Use head_position_variability on min m₁ m₂ and abs (m₁ - m₂)
+  wlog h : m₁ ≤ m₂
+  · rw [abs_sub_comm (f m₁), abs_sub_comm (Int.ofNat m₁)]
+    exact this f m₂ m₁ h_var (Nat.le_of_not_le h)
+  · have pos_result := head_position_variability f m₁ (m₂ - m₁) h_var
+    rw [Nat.add_sub_of_le h] at pos_result
+    simp only [Int.ofNat_sub h, abs_sub_comm] at pos_result
+    rw [abs_sub_comm (Int.ofNat m₁)]
+    calc |f m₁ - f m₂| ≤ ↑m₂ - ↑m₁  := pos_result
+      _ ≤ |↑m₂ - ↑m₁| := by simp only [le_abs_self]
 
 --- Space required for tape `i` up until step `n`
 def Configuration.tape_space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
