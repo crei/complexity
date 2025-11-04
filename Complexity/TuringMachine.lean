@@ -421,6 +421,10 @@ def dspace {Γ} (s : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
   ∃ (k : ℕ) (S : Type) (t : ℕ → ℕ) (tm : TM k.succ S (Option Γ)),
     Finite S ∧ tm.computes_in_o_time_and_space f ⟨t⟩ ⟨s⟩
 
+theorem dtime_in_dspace {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) :
+  dtime t f → dspace t f := by
+  sorry
+
 --- Functions on the natural numbers, computable in deterministic time `t`.
 def dtime_nat (t : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
   ∃ (Γ : Type) (encoder : ℕ → List Γ),
