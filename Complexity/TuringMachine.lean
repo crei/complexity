@@ -1,5 +1,7 @@
 import Mathlib
 
+import Complexity.Bounds
+
 universe u v
 
 -- Custom Char type with ' ' as default (instead of 'A')
@@ -198,61 +200,10 @@ def Configuration.tape_space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   have h_nonempty : head_positions.Nonempty := by simp [head_positions]
   ((head_positions.max' h_nonempty) - (head_positions.min' h_nonempty) + 1).toNat
 
---- Upper space bound for a given time limit, for a single tape.
-lemma tape_space_n_steps_linear_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
-  conf.tape_space_n_steps σ i n ≤ n + 1 := by
-  unfold Configuration.tape_space_n_steps
-  simp only [Int.toNat_le]
-  -- Get max and min exist in the range
-  let head_positions := (Finset.range (n + 1)).image (head_position conf σ i)
-  have h_nonempty : head_positions.Nonempty := by simp [head_positions]
-  have h_max_mem := Finset.max'_mem head_positions h_nonempty
-  have h_min_mem := Finset.min'_mem head_positions h_nonempty
-  simp only [head_positions, Finset.mem_image, Finset.mem_range] at h_max_mem h_min_mem
-  obtain ⟨m₁, hm₁_range, hm₁_eq⟩ := h_max_mem
-  obtain ⟨m₂, hm₂_range, hm₂_eq⟩ := h_min_mem
-  have min_le_max : head_positions.min' h_nonempty ≤ head_positions.max' h_nonempty := by
-    apply Finset.min'_le_max'
-  -- Apply head_position_variability'
-  have h_var := head_position_change_at_most_one conf σ i
-  have pos_bound := head_position_variability' (head_position conf σ i) m₁ m₂ h_var
-  rw [hm₁_eq, hm₂_eq] at pos_bound
-  -- Both m₁ and m₂ are in range [0, n]
-  have hm₁_le : m₁ ≤ n := Nat.lt_succ_iff.mp hm₁_range
-  have hm₂_le : m₂ ≤ n := Nat.lt_succ_iff.mp hm₂_range
-  have : abs (Int.ofNat m₁ - Int.ofNat m₂) ≤ n := by
-    have : abs (Int.ofNat m₁ - Int.ofNat m₂) ≤ max m₁ m₂ := by
-      by_cases h : m₁ ≤ m₂
-      · rw [← abs_neg, abs_of_nonneg]
-        simp [h]
-        simpa [Int.sub_nonneg] using h
-      · rw [abs_of_nonneg]
-        simp
-        simp [Int.sub_nonneg]
-        let h := Nat.le_of_not_le h
-        simp_all only [Int.ofNat_eq_coe]
-    omega
-  calc
-    head_positions.max' h_nonempty - head_positions.min' h_nonempty + 1
-        = abs (head_positions.max' h_nonempty - head_positions.min' h_nonempty) + 1 := by
-          rw [abs_of_nonneg (by simp [min_le_max])]
-      _ ≤ abs (Int.ofNat m₁ - Int.ofNat m₂) + 1 := by gcongr
-      _ ≤ ↑n + 1 := by omega
 
 def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (n : Nat) : ℕ :=
   ∑ i, conf.tape_space_n_steps σ i n
-
---- Upper space bound for a given time limit.
-lemma Configuration.space_n_steps_upper_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (σ : Transition k S Γ) (n : Nat) :
-  conf.space_n_steps σ n ≤ k * (n + 1) := by
-  calc
-    conf.space_n_steps σ n
-        = ∑ i, conf.tape_space_n_steps σ i n := by rfl
-      _ ≤ ∑ i, (n + 1) := by apply Finset.sum_le_sum; simp [tape_space_n_steps_linear_bound]
-      _ = k * (n + 1) := by simp
 
 def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
@@ -262,20 +213,6 @@ def TM.runs_in_exact_time_and_space {k : Nat} {S} {Γ}
 def TM.runs_in_time_and_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
   ∃ t' ≤ t, ∃ s' ≤ s, tm.runs_in_exact_time_and_space input output t' s'
-
-lemma TM.runs_in_time_and_space_of_runs_in_time {k : ℕ} {S} {Γ}
-  (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : ℕ)
-  (h_in_time : tm.runs_in_time input output t) :
-  tm.runs_in_time_and_space input output t (k.succ * (t + 1)) := by
-  obtain ⟨t', h_t'le, h_exact⟩ := h_in_time
-  use t', h_t'le
-  use (TM.initial_configuration tm input).space_n_steps tm.transition t'
-  unfold TM.runs_in_exact_time_and_space
-  simp [h_exact]
-  calc
-    (tm.initial_configuration input).space_n_steps tm.transition t'
-      ≤ k.succ * (t' + 1) := by apply Configuration.space_n_steps_upper_bound
-    _ ≤ k.succ * (t + 1) := by gcongr
 
 lemma TM.runs_in_time_and_space_monotone_time {k : ℕ} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (s : Nat) :
@@ -308,75 +245,6 @@ lemma TM.run_in_time_and_space_monotone_space {k : ℕ} {S} {Γ}
         _ ≤ s₂ := h_le
     · exact h_exact.right
 
---- A resource bound in terms of a function from ℕ to ℕ
-structure Bound where
-  to_fun : ℕ → ℕ
-
-instance : Coe Bound (ℕ → ℕ) where
-  coe f := f.to_fun
-
---- Big-O-Notation: Function `f` is in `O(g)`.
-def bound_le (f g : ℕ → ℕ) : Prop :=
-  ∃ c : ℕ, f ≤ c * g + c
-
-def Bound.le (f g : Bound) : Prop := bound_le f g
-
-infix:50 " ≼ " => Bound.le
-
-@[refl]
-lemma Bound.le.refl (f : Bound) : f ≼ f := by
-  use 1; simp
-
-@[trans]
-lemma Bound.le.trans (f g h : Bound)
-  (h_fg : f ≼ g) (h_gh : g ≼ h) : f ≼ h := by
-  obtain ⟨c₁, h_fg⟩ := h_fg
-  obtain ⟨c₂, h_gh⟩ := h_gh
-  use c₁ * c₂ + c₁
-  intro n
-  calc
-    f.to_fun n ≤ c₁ * g.to_fun n + c₁ := h_fg n
-    _ ≤ c₁ * (c₂ * h.to_fun n + c₂) + c₁ := by gcongr; exact h_gh n
-    _ = (c₁ * c₂) * h.to_fun n + (c₁ * c₂ + c₁) := by ring
-    _ ≤ (c₁ * c₂ + c₁) * h.to_fun n + (c₁ * c₂ + c₁) := by gcongr; exact Nat.le_add_right _ _
-
--- Bound.le is a Preorder
-instance : Preorder Bound where
-  le := Bound.le
-  le_refl := Bound.le.refl
-  le_trans := Bound.le.trans
-
---- le_o is a coarse version of ≤
-lemma Bound.le.le_of_le {f g : ℕ → ℕ} (h_gh : f ≤ g) : Bound.le ⟨ f ⟩ ⟨ g ⟩ := by
-  use 1; intro n; specialize h_gh n;
-  calc
-    f n ≤ g n := h_gh
-    _ ≤ 1 * g n + 1 := by linarith
-
-@[trans]
-theorem Bounds.trans_is_bounds_le {f g h : Bound}
-    (h_le₁ : f ≼ g) (h_le₂ : g ≤ h) : f ≼ h := by
-  exact Bound.le.trans _ _ _ h_le₁ h_le₂
-
-lemma Bounds.mul_le {f : ℕ → ℕ} {c : ℕ} : ⟨c * f⟩ ≼ ⟨f⟩ := by
-  use c
-  simp
-
-lemma Bounds.add_le {f : ℕ → ℕ} {c : ℕ} : ⟨f + c⟩ ≼ ⟨f⟩ := by
-  use c + 1
-  intro n
-  simp
-  have hf_le : f n ≤ (c + 1) * f n := by exact Nat.le_mul_of_pos_left _ (by omega)
-  omega
-
-instance : Trans (· ≼ ·) (· ≤ ·) (· ≼ ·) where
-  trans := Bounds.trans_is_bounds_le
-
-instance : Trans (· ≼ ·) (· ≼ ·) (· ≼ ·) where
-  trans := Bounds.trans_is_bounds_le
-
-def Bound.degree (f : Bound) := { g : ℕ → ℕ // Bound.le ⟨ g ⟩ f }
-
 def TM.computes_in_time {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : ℕ → ℕ) : Prop :=
   ∀ input, tm.runs_in_time input (f input) (t input.length)
@@ -402,14 +270,6 @@ lemma TM.computes_in_o_time.monotone {k : ℕ} {S} {Γ}
 def TM.computes_in_time_and_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t s : ℕ → ℕ) : Prop :=
   ∀ input, tm.runs_in_time_and_space input (f input) (t input.length) (s input.length)
-
-lemma TM.computes_in_time_and_space_of_computes_in_time {k : Nat} {S} {Γ}
-  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : ℕ → ℕ)
-  (h_comp : tm.computes_in_time f t) :
-  tm.computes_in_time_and_space f t (k.succ * (t + 1)) := by
-  intro input
-  specialize h_comp input
-  exact TM.runs_in_time_and_space_of_runs_in_time tm input (f input) (t input.length) h_comp
 
 def TM.computes_in_o_time_and_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t s : Bound) : Prop :=
@@ -450,48 +310,3 @@ lemma TM.computes_in_o_time_and_space.monotone_space {k : Nat} {S} {Γ}
     s' ≼ s₁ := h_le₂
     _ ≤ s₂ := h_le
   simp [h_le₁, h_s_le, h_exact]
-
-lemma TM.computes_in_o_time_and_space_of_computes_in_time {k : ℕ} {S} {Γ}
-  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : Bound)
-  (h_in_o_time : tm.computes_in_o_time f t) :
-  tm.computes_in_o_time_and_space f t t := by
-  obtain ⟨t', h_t_le, h_in_time⟩ := h_in_o_time
-  use t', ⟨(k.succ * (t' + 1))⟩
-  simp [h_t_le]
-  constructor
-  · calc
-      ⟨(k.succ * (t'.to_fun + 1))⟩ ≼ ⟨(t'.to_fun + 1)⟩ := by exact Bounds.mul_le
-      _ ≼ ⟨t'.to_fun⟩ := by exact Bounds.add_le
-      _ ≼ t := by exact h_t_le
-  · exact TM.computes_in_time_and_space_of_computes_in_time tm f t' h_in_time
-
---- Functions computable in deterministic time `t`.
-def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
-  ∃ (k : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
-    Finite Γ ∧ Finite S ∧ tm.computes_in_o_time f ⟨t⟩
-
---- Functions computable in deterministic space `s`.
-def dspace {Γ} (s : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
-  ∃ (k : ℕ) (S : Type) (t : ℕ → ℕ) (tm : TM k.succ S (Option Γ)),
-    Finite Γ ∧ Finite S ∧ tm.computes_in_o_time_and_space f ⟨t⟩ ⟨s⟩
-
-theorem dtime_in_dspace {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) :
-  dtime t f → dspace t f := by
-  intro h
-  obtain ⟨k, S, tm, h_Γ_finite, h_S_finite, h_comp⟩ := h
-  unfold dspace
-  use k, S, t, tm
-  simp only [h_Γ_finite, h_S_finite, true_and]
-  exact TM.computes_in_o_time_and_space_of_computes_in_time tm f ⟨t⟩ h_comp
-
---- Functions on the natural numbers, computable in deterministic time `t`.
-def dtime_nat (t : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
-  ∃ (Γ : Type) (encoder : ℕ → List Γ),
-    Function.Bijective encoder ∧
-    dtime t (encoder ∘ f ∘ (Function.invFun encoder))
-
---- Functions on the natural numbers, computable in deterministic space `s`.
-def dspace_nat (s : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
-  ∃ (Γ : Type) (encoder : ℕ → List Γ),
-    Function.Bijective encoder ∧
-    dspace s (encoder ∘ f ∘ (Function.invFun encoder))
