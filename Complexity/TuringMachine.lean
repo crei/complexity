@@ -263,6 +263,20 @@ def TM.runs_in_time_and_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) (s : Nat) : Prop :=
   ∃ t' ≤ t, ∃ s' ≤ s, tm.runs_in_exact_time_and_space input output t' s'
 
+lemma TM.runs_in_time_and_space_of_runs_in_time {k : ℕ} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : ℕ)
+  (h_in_time : tm.runs_in_time input output t) :
+  tm.runs_in_time_and_space input output t (k.succ * (t + 1)) := by
+  obtain ⟨t', h_t'le, h_exact⟩ := h_in_time
+  use t', h_t'le
+  use (TM.initial_configuration tm input).space_n_steps tm.transition t'
+  unfold TM.runs_in_exact_time_and_space
+  simp [h_exact]
+  calc
+    (tm.initial_configuration input).space_n_steps tm.transition t'
+      ≤ k.succ * (t' + 1) := by apply Configuration.space_n_steps_upper_bound
+    _ ≤ k.succ * (t + 1) := by gcongr
+
 lemma TM.runs_in_time_and_space_monotone_time {k : ℕ} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (s : Nat) :
     Monotone (tm.runs_in_time_and_space input output · s) := by
@@ -344,7 +358,21 @@ theorem Bounds.trans_is_bounds_le {f g h : Bound}
     (h_le₁ : f ≼ g) (h_le₂ : g ≤ h) : f ≼ h := by
   exact Bound.le.trans _ _ _ h_le₁ h_le₂
 
+lemma Bounds.mul_le {f : ℕ → ℕ} {c : ℕ} : ⟨c * f⟩ ≼ ⟨f⟩ := by
+  use c
+  simp
+
+lemma Bounds.add_le {f : ℕ → ℕ} {c : ℕ} : ⟨f + c⟩ ≼ ⟨f⟩ := by
+  use c + 1
+  intro n
+  simp
+  have hf_le : f n ≤ (c + 1) * f n := by exact Nat.le_mul_of_pos_left _ (by omega)
+  omega
+
 instance : Trans (· ≼ ·) (· ≤ ·) (· ≼ ·) where
+  trans := Bounds.trans_is_bounds_le
+
+instance : Trans (· ≼ ·) (· ≼ ·) (· ≼ ·) where
   trans := Bounds.trans_is_bounds_le
 
 def Bound.degree (f : Bound) := { g : ℕ → ℕ // Bound.le ⟨ g ⟩ f }
@@ -375,9 +403,23 @@ def TM.computes_in_time_and_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t s : ℕ → ℕ) : Prop :=
   ∀ input, tm.runs_in_time_and_space input (f input) (t input.length) (s input.length)
 
+lemma TM.computes_in_time_and_space_of_computes_in_time {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : ℕ → ℕ)
+  (h_comp : tm.computes_in_time f t) :
+  tm.computes_in_time_and_space f t (k.succ * (t + 1)) := by
+  intro input
+  specialize h_comp input
+  exact TM.runs_in_time_and_space_of_runs_in_time tm input (f input) (t input.length) h_comp
+
 def TM.computes_in_o_time_and_space {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t s : Bound) : Prop :=
   ∃ t' s', t' ≼ t ∧ s' ≼ s ∧ tm.computes_in_time_and_space f t' s'
+
+lemma TM.computes_in_o_time_and_space_of_comutes_in_time_and_space {k : ℕ} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t s : Bound)
+  (h_in_time_and_space : tm.computes_in_time_and_space f t s) :
+  tm.computes_in_o_time_and_space f t s := by
+  use t, s
 
 --- Monotonicity of computes_in_o_time_and_space wrt time.
 lemma TM.computes_in_o_time_and_space.monotone_time {k : Nat} {S} {Γ}
@@ -409,17 +451,38 @@ lemma TM.computes_in_o_time_and_space.monotone_space {k : Nat} {S} {Γ}
     _ ≤ s₂ := h_le
   simp [h_le₁, h_s_le, h_exact]
 
+lemma TM.computes_in_o_time_and_space_of_computes_in_time {k : ℕ} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (f : List Γ → List Γ) (t : Bound)
+  (h_in_o_time : tm.computes_in_o_time f t) :
+  tm.computes_in_o_time_and_space f t t := by
+  obtain ⟨t', h_t_le, h_in_time⟩ := h_in_o_time
+  use t', ⟨(k.succ * (t' + 1))⟩
+  simp [h_t_le]
+  constructor
+  · calc
+      ⟨(k.succ * (t'.to_fun + 1))⟩ ≼ ⟨(t'.to_fun + 1)⟩ := by exact Bounds.mul_le
+      _ ≼ ⟨t'.to_fun⟩ := by exact Bounds.add_le
+      _ ≼ t := by exact h_t_le
+  · exact TM.computes_in_time_and_space_of_computes_in_time tm f t' h_in_time
+
 --- Functions computable in deterministic time `t`.
 def dtime {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
-  Finite Γ ∧
   ∃ (k : ℕ) (S : Type) (tm : TM k.succ S (Option Γ)),
-    Finite S ∧ tm.computes_in_o_time f ⟨t⟩
+    Finite Γ ∧ Finite S ∧ tm.computes_in_o_time f ⟨t⟩
 
 --- Functions computable in deterministic space `s`.
 def dspace {Γ} (s : ℕ → ℕ) (f : List Γ → List Γ) : Prop :=
-  Finite Γ ∧
   ∃ (k : ℕ) (S : Type) (t : ℕ → ℕ) (tm : TM k.succ S (Option Γ)),
-    Finite S ∧ tm.computes_in_o_time_and_space f ⟨t⟩ ⟨s⟩
+    Finite Γ ∧ Finite S ∧ tm.computes_in_o_time_and_space f ⟨t⟩ ⟨s⟩
+
+theorem dtime_in_dspace {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) :
+  dtime t f → dspace t f := by
+  intro h
+  obtain ⟨k, S, tm, h_Γ_finite, h_S_finite, h_comp⟩ := h
+  unfold dspace
+  use k, S, t, tm
+  simp only [h_Γ_finite, h_S_finite, true_and]
+  exact TM.computes_in_o_time_and_space_of_computes_in_time tm f ⟨t⟩ h_comp
 
 --- Functions on the natural numbers, computable in deterministic time `t`.
 def dtime_nat (t : ℕ → ℕ) (f : ℕ → ℕ) : Prop :=
