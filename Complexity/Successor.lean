@@ -152,8 +152,5 @@ theorem succ_in_linear_time : dtime_nat id Nat.succ := by
   use OneTwo, rev_dya
   constructor
   · exact rev_dya_bijective
-  · use Finite.of_fintype OneTwo
-    use 0
-    use Fin 2
-    use succ_tm
-    exact ⟨Finite.of_fintype (Fin 2), dya_succ_in_linear_time⟩
+  · use 0, Fin 2, succ_tm
+    exact ⟨Finite.of_fintype OneTwo, Finite.of_fintype (Fin 2), dya_succ_in_linear_time⟩
