@@ -133,33 +133,47 @@ lemma TM.runs_in_time_monotone {k : ℕ} {S} {Γ}
         _ ≤ t₂ := h_le
   · exact h_exact
 
---- Update position based on a move operation
-def update_head_position (pos : ℤ) (move : Option Turing.Dir) : ℤ :=
-  match move with
-  | none => pos
-  | some Turing.Dir.left => pos - 1
-  | some Turing.Dir.right => pos + 1
+def head_position_update {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) : ℤ :=
+  match ((σ conf.state fun j => (conf.tapes j).head).2 i).2 with
+  | none => 0
+  | some Turing.Dir.left => 1
+  | some Turing.Dir.right => -1
 
-lemma update_head_position_change_at_most_one (pos : ℤ) (move : Option Turing.Dir) :
-  |(update_head_position pos move) - pos| ≤ 1 := by
-  cases move with
-  | none => unfold update_head_position; simp
-  | some dir => cases dir <;> unfold update_head_position <;> simp
+lemma head_position_update_at_most_one {k : ℕ} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) :
+  |head_position_update conf σ i| ≤ 1 := by
+  unfold head_position_update
+  cases ((σ conf.state fun j => (conf.tapes j).head).2 i).2 with
+  | none => simp
+  | some dir => cases dir <;> simp
 
 --- Position of tape head `i` over time.
 def head_position {k : Nat} {S} {Γ} [Inhabited Γ]
-  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) : Nat → ℤ
-  | 0 => 0
-  | Nat.succ n =>
-      let prev_conf := σ.n_steps conf n
-      let tape_op := (σ prev_conf.state fun j => (prev_conf.tapes j).head).2 i
-      update_head_position (head_position conf σ i n) tape_op.2
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) : ℤ :=
+  -- sum over integers less than n
+  ∑ j ∈ Finset.range n, head_position_update (σ.n_steps conf j) σ i
+
+@[simp]
+lemma head_position_zero {k : ℕ} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) :
+  head_position conf σ i 0 = 0 := by
+  rfl
+
+lemma head_position_add_steps {k : ℕ} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n m : ℕ) :
+  head_position conf σ i (n + m) =
+    head_position conf σ i n + head_position (σ.n_steps conf n) σ i m := by
+  unfold head_position
+  rw [Finset.sum_range_add]
+  simp [n_steps_addition]
 
 lemma head_position_change_at_most_one {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
   |(head_position conf σ i (n + 1)) - (head_position conf σ i n)| ≤ 1 := by
-  conv in head_position _ _ _ (n + 1) => unfold head_position
-  simp [update_head_position_change_at_most_one]
+  simp [head_position_add_steps]
+  unfold head_position
+  simp [head_position_update_at_most_one]
 
 lemma head_position_variability (f : ℕ → ℤ) (m n : ℕ)
   (h_var : ∀ n : ℕ, |f (n + 1) - f n| ≤ 1) :
