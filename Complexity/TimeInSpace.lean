@@ -1,6 +1,7 @@
 import Mathlib
 
 import Complexity.TuringMachine
+import Complexity.Classes
 
 --- Upper space bound for a given time limit, for a single tape.
 lemma tape_space_n_steps_linear_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
