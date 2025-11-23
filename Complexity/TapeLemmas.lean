@@ -25,3 +25,51 @@ theorem Tape.move_left_right_iter {Γ} [Inhabited Γ] (T : Turing.Tape Γ) (n : 
     simp only [Function.iterate_succ, Function.comp_apply]
     rw [Function.Commute.iterate_self (Turing.Tape.move Turing.Dir.left)]
     simp [ih]
+
+@[simp]
+lemma Tape.nth_of_empty {Γ} [Inhabited Γ] (i : ℤ) :
+    (Turing.Tape.mk₁ []).nth i = (default : Γ) :=
+  match i with
+  | 0 => by simp; rfl
+  | (_ + 1 : ℕ) => by simp; rfl
+  | Int.negSucc k => by unfold Turing.Tape.nth; simp; rfl
+
+@[simp]
+lemma Tape.mk₂_nth {Γ} [Inhabited Γ] (i : ℤ)
+  (A B : List Γ) :
+  (Turing.Tape.mk₂ A B).nth i =
+    if i < 0 then A.getD (-i - 1).toNat default else B.getD i.toNat default :=
+  match i with
+  | 0 => by
+      unfold Turing.Tape.mk₂
+      match B with
+      | [] => simp_all
+      | x :: xs => simp_all
+  | (n + 1 : ℕ) => by
+      unfold Turing.Tape.mk₂ Turing.Tape.nth
+      simp
+      have h : ¬((n : Int) + 1 < 0) := by linarith
+      simp [h]
+      match B with
+      | [] => simp
+      | x :: xs => simp only [List.tail_cons, List.getElem?_cons_succ]; rfl
+  | Int.negSucc k => by unfold Turing.Tape.nth; simp; rfl
+
+lemma Tape.mk₂_nth' {Γ} [Inhabited Γ] (i : ℤ)
+  (A B : List Γ) :
+  (Turing.Tape.mk₂ A B).nth i = match i with
+    | Int.ofNat n => B.getD n default
+    | Int.negSucc n => A.getD n default :=
+  match i with
+  | 0 => by
+      unfold Turing.Tape.mk₂
+      match B with
+      | [] => simp_all
+      | x :: xs => simp_all
+  | (n + 1 : ℕ) => by
+      unfold Turing.Tape.mk₂ Turing.Tape.nth
+      simp
+      match B with
+      | [] => simp
+      | x :: xs => simp only [List.tail_cons, List.getElem?_cons_succ]; rfl
+  | Int.negSucc k => by unfold Turing.Tape.nth; simp; rfl
