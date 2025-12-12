@@ -25,6 +25,7 @@ structure TM (k : Nat) Q Γ [Inhabited Γ] where
   startState : Q
   stopState : Q
 
+@[ext]
 structure Configuration (k : Nat) S Γ [Inhabited Γ] where
   state : S
   tapes : Fin k → Turing.Tape Γ
@@ -172,15 +173,12 @@ lemma TM.runs_in_time_of_inert {k : Nat} {S} {Γ} [DecidableEq S]
       exact h_stops_with_output
     unfold TM.runs_in_time TM.runs_in_exact_time
     use t'
-    constructor
-    · exact Nat.le_of_lt h_t'_lt_t
-    · constructor
-      · exact h_stops_at_t'
-      · intro t'' h_t''_lt_t'
-        have h_min := Nat.find_min h_first h_t''_lt_t'
-        simp only [not_and] at h_min
-        intro h_eq
-        exact h_min (Nat.lt_trans h_t''_lt_t' h_t'_lt_t) h_eq
+    refine ⟨Nat.le_of_lt h_t'_lt_t, h_stops_at_t', ?_⟩
+    intro t'' h_t''_lt_t'
+    have h_min := Nat.find_min h_first h_t''_lt_t'
+    simp only [not_and] at h_min
+    intro h_eq
+    exact h_min (Nat.lt_trans h_t''_lt_t' h_t'_lt_t) h_eq
 
 
 def head_position_update {k : Nat} {S} {Γ} [Inhabited Γ]
