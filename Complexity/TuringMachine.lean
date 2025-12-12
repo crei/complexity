@@ -62,6 +62,7 @@ def Transition.step {k : Nat} {S} {Γ} [Inhabited Γ]
     tapes := fun i => performTapeOps (conf.tapes i) (tapeOps i).1 (tapeOps i).2
   }
 
+-- TODO replace this with function iteration from Mathlib
 def Transition.n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) :
   Configuration k S Γ :=
@@ -103,19 +104,25 @@ def TM.initial_configuration {k : Nat} {S} {Γ}
   let firstTape := Turing.Tape.mk₁ (input.map some)
   { state := tm.startState, tapes := fun i => if i.val = 0 then firstTape else default }
 
--- TOOD At some point we need the statement that we do not change the state
--- after reaching the accept or reject state.
-
 def tape_equiv_up_to_shift {Γ} [Inhabited Γ]
   (t1 t2 : Turing.Tape Γ) : Prop :=
   ∃ shift : ℕ, ∃ dir, t2 = (Turing.Tape.move dir)^[shift] t1
 
+def TM.configurations_on_input {k : Nat} {S} {Γ}
+  (tm : TM k S (Option Γ)) (input : List Γ) (t : Nat) : Configuration k S (Option Γ) :=
+  tm.transition.n_steps (TM.initial_configuration tm input) t
+
+def TM.stops_and_outputs {k : Nat} {S} {Γ}
+  (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
+  tape_equiv_up_to_shift
+    ((tm.configurations_on_input input t).tapes ⟨k, by simp⟩)
+    (Turing.Tape.mk₁ (output.map some)) ∧
+  (tm.configurations_on_input input t).state = tm.stopState
+
 def TM.runs_in_exact_time {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
-  -- TODO and actually we need that the stop state is not reached earlier.
-  let conf := tm.transition.n_steps (TM.initial_configuration tm input) t
-  tape_equiv_up_to_shift (conf.tapes ⟨k, by simp⟩) (Turing.Tape.mk₁ (output.map some)) ∧
-  conf.state = tm.stopState
+  tm.stops_and_outputs input output t ∧
+  ∀ t' < t, (tm.configurations_on_input input t').state ≠ tm.stopState
 
 def TM.runs_in_time {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
@@ -132,6 +139,49 @@ lemma TM.runs_in_time_monotone {k : ℕ} {S} {Γ}
   · calc t' ≤ t₁ := h_t'le
         _ ≤ t₂ := h_le
   · exact h_exact
+
+-- If a TM stays inert when reaching the stop state, it suffices to show that it stops
+-- with the correct output (i.e. we do not need to find the first time step it reaches
+-- the stop state).
+lemma TM.runs_in_time_of_inert {k : Nat} {S} {Γ} [DecidableEq S]
+  (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat)
+  (h_inert : ∀ conf, conf.state = tm.stopState → tm.transition.step conf = conf)
+  (h_stops_with_output : tm.stops_and_outputs input output t) :
+  tm.runs_in_time input output t := by
+  by_cases h_first : ∀ t' < t, (tm.configurations_on_input input t').state ≠ tm.stopState
+  · unfold TM.runs_in_time TM.runs_in_exact_time
+    use t
+  · simp only [not_forall, not_not, exists_prop] at h_first
+    let t' := Nat.find h_first
+    have ⟨h_t'_lt_t, h_t'_stops⟩ := Nat.find_spec h_first
+    -- Since the machine is inert at the stop state, it stays stopped
+    have h_conf_eq (d : ℕ) : tm.configurations_on_input input (t' + d) =
+                            tm.configurations_on_input input t' := by
+      induction d with
+      | zero => simp
+      | succ d ih =>
+        calc tm.configurations_on_input input (t' + Nat.succ d)
+          = tm.configurations_on_input input (Nat.succ (t' + d)) := by rw [Nat.add_succ]
+          _ = tm.transition.step (tm.configurations_on_input input (t' + d)) := by
+              unfold TM.configurations_on_input; simp [Transition.n_steps]
+          _ = tm.configurations_on_input input t' := by simpa [ih] using h_inert _ h_t'_stops
+    have h_stops_at_t' : tm.stops_and_outputs input output t' := by
+      have h_t_eq_t'_plus : t = t' + (t - t') := by omega
+      unfold TM.stops_and_outputs at *
+      rw [← h_conf_eq, ← h_t_eq_t'_plus]
+      exact h_stops_with_output
+    unfold TM.runs_in_time TM.runs_in_exact_time
+    use t'
+    constructor
+    · exact Nat.le_of_lt h_t'_lt_t
+    · constructor
+      · exact h_stops_at_t'
+      · intro t'' h_t''_lt_t'
+        have h_min := Nat.find_min h_first h_t''_lt_t'
+        simp only [not_and] at h_min
+        intro h_eq
+        exact h_min (Nat.lt_trans h_t''_lt_t' h_t'_lt_t) h_eq
+
 
 def head_position_update {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) : ℤ :=
@@ -171,7 +221,7 @@ lemma head_position_add_steps {k : ℕ} {S} {Γ} [Inhabited Γ]
 lemma head_position_change_at_most_one {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
   |(head_position conf σ i (n + 1)) - (head_position conf σ i n)| ≤ 1 := by
-  simp [head_position_add_steps]
+  simp only [head_position_add_steps, add_sub_cancel_left]
   unfold head_position
   simp [head_position_update_at_most_one]
 
