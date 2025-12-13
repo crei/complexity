@@ -35,6 +35,13 @@ def succ_tm : TM 1 (Fin 2) (Option OneTwo) := {
   stopState := 1
 }
 
+@[simp]
+lemma succ_transition.inert
+  (c : Configuration 1 (Fin 2) (Option OneTwo))
+  (h_is_stopped : c.state = 1) :
+  succ_transition.step c = c := by
+  unfold Transition.step; ext <;> simp [succ_transition, h_is_stopped]
+
 def rev_dya (n : ℕ) : List OneTwo :=
   (dyadic_encoding_reverse n).map (fun x => if x then .two else .one)
 
@@ -121,9 +128,12 @@ theorem succ_in_linear_time_via_rev_dya (n : ℕ) : succ_tm.runs_in_time
     ((n + 2).log2 + 1) := by
   obtain ⟨shift, hstep⟩ := succ_semantics n []
   rw [Turing.Tape.mk₂, rev_dya_option] at hstep
-  simp [TM.runs_in_time, TM.runs_in_exact_time, TM.initial_configuration]
-  use (n + 2).log2 + 1
-  simp [succ_tm, Turing.Tape.mk₁, Turing.Tape.mk₂, hstep]
+  apply TM.runs_in_time_of_inert succ_tm _ _ _
+    (by intro c h_state; simpa using succ_transition.inert c h_state)
+  simp only [TM.stops_and_outputs, Nat.reduceAdd, TM.configurations_on_input,
+    TM.initial_configuration, Fin.val_eq_zero, ↓reduceIte, Fin.zero_eta, Fin.isValue,
+    Nat.succ_eq_add_one]
+  simp only [succ_tm, Fin.isValue, Turing.Tape.mk₁, Turing.Tape.mk₂, hstep, and_true]
   use shift, .left;
   simp [rev_dya_option]
 
