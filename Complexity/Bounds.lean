@@ -57,7 +57,8 @@ lemma Bounds.mul_le {f : ℕ → ℕ} {c : ℕ} : ⟨c * f⟩ ≼ ⟨f⟩ := by
 lemma Bounds.add_le {f : ℕ → ℕ} {c : ℕ} : ⟨f + c⟩ ≼ ⟨f⟩ := by
   use c + 1
   intro n
-  simp
+  simp only [Pi.add_apply, Pi.natCast_apply, Nat.cast_id, Nat.cast_add, Nat.cast_one, Pi.mul_apply,
+    Pi.one_apply]
   have hf_le : f n ≤ (c + 1) * f n := by exact Nat.le_mul_of_pos_left _ (by omega)
   omega
 

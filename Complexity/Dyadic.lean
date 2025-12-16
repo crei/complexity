@@ -63,9 +63,8 @@ theorem dyadic_induction_on {p : ℕ → Prop} (n : ℕ)
   | succ m =>
     by_cases hEven : Even m.succ
     · have he : ∃ n', m + 1 = 2 * n' + 2 := by
-        simp [Nat.even_add_one, Nat.succ_eq_add_one] at hEven
-        simp_all only [Nat.add_right_cancel_iff]
-        exact hEven
+        simpa [Nat.add_right_cancel_iff, Nat.succ_eq_add_one,
+           Nat.even_add_one, Nat.not_even_iff_odd] using hEven
       rcases he with ⟨n', hn'⟩
       rw [hn']
       exact h2 n' (IH n' (by linarith))
@@ -87,12 +86,14 @@ theorem dyadic_length (n : ℕ) : (dyadic_encoding n).length = (n + 1).log2 := b
   refine dyadic_induction_on n ?_ ?_ ?_
   · unfold dyadic_encoding; decide
   · intro n IH
-    simp [dyadic_encoding_prop_one, IH]
+    simp only [dyadic_encoding_prop_one, List.length_append, IH, List.length_cons, List.length_nil,
+      zero_add]
     rw [← Nat.log2_two_mul]
     · rfl
     · simp
   · intro n IH
-    simp [dyadic_encoding_prop_two, IH]
+    simp only [dyadic_encoding_prop_two, List.length_append, IH, List.length_cons, List.length_nil,
+      zero_add]
     rw [← Nat.log2_two_mul] <;> simp [log2_succ]
 
 theorem dyadic_reverse_length (n : ℕ) :
@@ -100,12 +101,12 @@ theorem dyadic_reverse_length (n : ℕ) :
   refine dyadic_induction_on n ?_ ?_ ?_
   · unfold dyadic_encoding_reverse; decide
   · intro n IH
-    simp [dyadic_encoding_reverse_prop_one, IH]
+    simp only [dyadic_encoding_reverse_prop_one, List.length_cons, IH]
     rw [← Nat.log2_two_mul]
     · rfl
     · simp
   · intro n IH
-    simp [dyadic_encoding_reverse_prop_two, IH]
+    simp only [dyadic_encoding_reverse_prop_two, List.length_cons, IH]
     rw [← Nat.log2_two_mul] <;> simp [log2_succ]
 
 theorem dyadic_bijective (n : ℕ) :
@@ -117,8 +118,7 @@ theorem dyadic_bijective (n : ℕ) :
     | .zero => simp [dyadic_encoding, dyadic_decoding, dyadic_decoding_reverse]
     | .succ m =>
       have h2 : ∃ n', m = 2 * n' + 1 := by
-        simp [Nat.even_add_one, Nat.succ_eq_add_one] at hEven
-        exact hEven
+        simpa [Nat.even_add_one, Nat.succ_eq_add_one] using hEven
       rcases h2 with ⟨n', h2⟩
       rw [h2]
       simp [dyadic_encoding_prop_two, dyadic_decoding, dyadic_decoding_reverse]

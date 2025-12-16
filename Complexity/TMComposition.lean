@@ -165,12 +165,10 @@ theorem behaviour_n_steps {k : ℕ} {Q1 Q2 Γ : Type*}
     have hm_spec : m < n ∧ (σ₁.n_steps conf m).state = final := Nat.find_spec h
     have hm_lt : m < n := hm_spec.1
     have h_final : (σ₁.n_steps conf m).state = final := hm_spec.2
-
     have no_final : ∀ n' < m, (σ₁.n_steps conf n').state ≠ final := by
       intro n' hn' hfin'
       have : m ≤ n' := Nat.find_min' h ⟨Nat.lt_trans hn' hm_lt, hfin'⟩
       exact (not_le_of_gt hn') this
-
     have steps_decomp :
         m + (n - m - 1) + 1 = n := by
       calc
@@ -178,16 +176,12 @@ theorem behaviour_n_steps {k : ℕ} {Q1 Q2 Γ : Type*}
             = m + ((n - m - 1) + 1) := by rfl
         _   = m + (n - m)           := by simp [Nat.succ_le_of_lt, Nat.sub_add_cancel, hm_lt]
         _   = n                     := by simp [Nat.add_sub_of_le (Nat.le_of_lt hm_lt)]
-
     -- Apply the "crossing" lemma at the first hitting time m
     have hcross :=
       behaviour_n_steps_crossing (σ₂:=σ₂) (n₁:=m) (n₂:=n - m - 1) (no_final:=no_final)
-
     simp_all [m, Nat.succ_le_of_lt]
-
   · -- Case 2: we *never* hit `final` before `n`
     have no_final : ∀ n' < n, (σ₁.n_steps conf n').state ≠ final := by
       intro n' hn'
       exact fun hfin => h ⟨n', hn', hfin⟩
-
     simpa [h] using behaviour_n_steps_first_part σ₁ final start σ₂ conf n no_final

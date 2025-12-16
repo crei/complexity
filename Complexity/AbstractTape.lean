@@ -39,7 +39,7 @@ lemma move_int_nth {Γ} [Inhabited Γ]
   unfold Turing.Tape.move_int
   match n with
   | .ofNat n =>
-    simp only [Int.ofNat_eq_coe]
+    dsimp
     induction n generalizing tape with
     | zero => simp
     | succ n ih =>

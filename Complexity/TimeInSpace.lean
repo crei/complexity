@@ -29,14 +29,10 @@ lemma tape_space_n_steps_linear_bound {k : ℕ} {S} {Γ} [Inhabited Γ]
   have : abs (Int.ofNat m₁ - Int.ofNat m₂) ≤ n := by
     have : abs (Int.ofNat m₁ - Int.ofNat m₂) ≤ max m₁ m₂ := by
       by_cases h : m₁ ≤ m₂
-      · rw [← abs_neg, abs_of_nonneg]
-        simp [h]
-        simpa [Int.sub_nonneg] using h
-      · rw [abs_of_nonneg]
+      · rw [← abs_neg, abs_of_nonneg (by simp [h])]
         simp
-        simp [Int.sub_nonneg]
-        let h := Nat.le_of_not_le h
-        simp_all only [Int.ofNat_eq_coe]
+      · rw [abs_of_nonneg (by simp; linarith)]
+        simp
     omega
   calc
     head_positions.max' h_nonempty - head_positions.min' h_nonempty + 1
@@ -64,7 +60,7 @@ lemma TM.runs_in_time_and_space_of_runs_in_time {k : ℕ} {S} {Γ}
   use t', h_t'le
   use (TM.initial_configuration tm input).space_n_steps tm.transition t'
   unfold TM.runs_in_exact_time_and_space
-  simp [h_exact]
+  simp only [h_exact, and_true]
   calc
     (tm.initial_configuration input).space_n_steps tm.transition t'
       ≤ k.succ * (t' + 1) := by apply Configuration.space_n_steps_upper_bound
@@ -84,13 +80,14 @@ lemma TM.computes_in_o_time_and_space_of_computes_in_time {k : ℕ} {S} {Γ}
   tm.computes_in_o_time_and_space f t t := by
   obtain ⟨t', h_t_le, h_in_time⟩ := h_in_o_time
   use t', ⟨(k.succ * (t' + 1))⟩
-  simp [h_t_le]
   constructor
-  · calc
-      ⟨(k.succ * (t'.to_fun + 1))⟩ ≼ ⟨(t'.to_fun + 1)⟩ := by exact Bounds.mul_le
-      _ ≼ ⟨t'.to_fun⟩ := by exact Bounds.add_le
-      _ ≼ t := by exact h_t_le
-  · exact TM.computes_in_time_and_space_of_computes_in_time tm f t' h_in_time
+  · exact h_t_le
+  · constructor
+    · calc
+        ⟨(k.succ * (t'.to_fun + 1))⟩ ≼ ⟨(t'.to_fun + 1)⟩ := by exact Bounds.mul_le
+        _ ≼ ⟨t'.to_fun⟩ := by exact Bounds.add_le
+        _ ≼ t := by exact h_t_le
+    · exact TM.computes_in_time_and_space_of_computes_in_time tm f t' h_in_time
 
 theorem dtime_in_dspace {Γ} (t : ℕ → ℕ) (f : List Γ → List Γ) :
   dtime t f → dspace t f := by

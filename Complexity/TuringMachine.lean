@@ -144,11 +144,12 @@ lemma TM.runs_in_time_monotone {k : ℕ} {S} {Γ}
 -- If a TM stays inert when reaching the stop state, it suffices to show that it stops
 -- with the correct output (i.e. we do not need to find the first time step it reaches
 -- the stop state).
-lemma TM.runs_in_time_of_inert {k : Nat} {S} {Γ} [DecidableEq S]
+lemma TM.runs_in_time_of_inert {k : Nat} {S} {Γ}
   (tm : TM k.succ S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat)
   (h_inert : ∀ conf, conf.state = tm.stopState → tm.transition.step conf = conf)
   (h_stops_with_output : tm.stops_and_outputs input output t) :
   tm.runs_in_time input output t := by
+  classical
   by_cases h_first : ∀ t' < t, (tm.configurations_on_input input t').state ≠ tm.stopState
   · unfold TM.runs_in_time TM.runs_in_exact_time
     use t
