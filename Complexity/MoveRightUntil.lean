@@ -57,7 +57,8 @@ lemma move_right_multi {k : ℕ}
     have h_head : ¬ stop_condition (conf_pre.tapes tape).head := by
       rw [pre_tape]
       simp [Turing.Tape.move_right_n_head, h_remaining m (by simp)]
-    simp [h, pre_tape, move_right_step _ _ _ pre_state h_head, Function.iterate_succ]
+    simp only [h, move_right_step _ _ _ pre_state h_head, Fin.isValue, pre_tape,
+      Function.iterate_succ, Function.comp_apply, true_and]
     rw [Function.Commute.self_iterate (Turing.Tape.move .right) m]
 
 lemma move_right_last_step {k : ℕ}

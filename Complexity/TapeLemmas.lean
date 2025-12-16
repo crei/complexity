@@ -6,8 +6,7 @@ theorem Tape.write_mk'_list {Γ} [Inhabited Γ] (a b : Γ) (L : Turing.ListBlank
     (Turing.Tape.mk' L (Turing.ListBlank.mk (a :: R))).write b =
       Turing.Tape.mk' L (Turing.ListBlank.mk (b :: R)) := by
   rw [← Turing.ListBlank.cons_mk]
-  simp only [Turing.Tape.write_mk']
-  simp only [Turing.ListBlank.cons_mk]
+  simp
 
 @[simp]
 theorem Tape.write_mk'empty {Γ} [Inhabited Γ] (b : Γ) (L : Turing.ListBlank Γ) :
@@ -47,12 +46,13 @@ lemma Tape.mk₂_nth {Γ} [Inhabited Γ] (i : ℤ)
       | x :: xs => simp_all
   | (n + 1 : ℕ) => by
       unfold Turing.Tape.mk₂ Turing.Tape.nth
-      simp
       have h : ¬((n : Int) + 1 < 0) := by linarith
-      simp [h]
+      simp only [Turing.Tape.mk'_right, Turing.ListBlank.tail_mk, Turing.ListBlank.nth_mk,
+        Nat.cast_add, Nat.cast_one, h, ↓reduceIte, Int.toNat_natCast_add_one,
+        List.getD_eq_getElem?_getD]
       match B with
-      | [] => simp
-      | x :: xs => simp only [List.tail_cons, List.getElem?_cons_succ]; rfl
+      | [] => rfl
+      | x :: xs => simp only [List.getElem?_cons_succ]; rfl
   | Int.negSucc k => by unfold Turing.Tape.nth; simp; rfl
 
 lemma Tape.mk₂_nth' {Γ} [Inhabited Γ] (i : ℤ)
@@ -68,8 +68,9 @@ lemma Tape.mk₂_nth' {Γ} [Inhabited Γ] (i : ℤ)
       | x :: xs => simp_all
   | (n + 1 : ℕ) => by
       unfold Turing.Tape.mk₂ Turing.Tape.nth
-      simp
+      simp only [Turing.Tape.mk'_right, Turing.ListBlank.tail_mk, Turing.ListBlank.nth_mk,
+        List.getD_eq_getElem?_getD]
       match B with
-      | [] => simp
-      | x :: xs => simp only [List.tail_cons, List.getElem?_cons_succ]; rfl
+      | [] => rfl
+      | x :: xs => simp only [List.getElem?_cons_succ]; rfl
   | Int.negSucc k => by unfold Turing.Tape.nth; simp; rfl

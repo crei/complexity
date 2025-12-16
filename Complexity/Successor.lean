@@ -112,15 +112,14 @@ theorem succ_semantics (n : ℕ) (pref : List (Option OneTwo)) :
     simp [stop_state_inert]
   · intro n ih pref
     rw [← n_steps_first, succ_step_even]
-    simp [Turing.Tape.mk₂]
+    simp only [Fin.isValue, Turing.Tape.mk₂, Turing.Tape.move_right_mk', Turing.ListBlank.head_mk,
+      List.headI_cons, Turing.ListBlank.cons_mk, Turing.ListBlank.tail_mk, List.tail_cons]
     rw [← Turing.Tape.mk₂]
     obtain ⟨shift, ih⟩ := ih ((some .one):: pref)
     use shift + 1
     rw [Nat.log2_def]
-    simp_all
-    unfold Turing.Tape.mk₂
     have hn : 2 * n + 2 + 1 = 2 * (n + 1) + 1 := by ring
-    simp [hn]
+    simp_all [Turing.Tape.mk₂]
 
 theorem succ_in_linear_time_via_rev_dya (n : ℕ) : succ_tm.runs_in_time
     (rev_dya n)
@@ -141,17 +140,19 @@ theorem dya_succ_in_linear_time :
     succ_tm.computes_in_o_time (rev_dya ∘ Nat.succ ∘ (Function.invFun rev_dya)) ⟨id⟩ := by
   use ⟨fun n => 2 * n + 2⟩
   have h_bound : ⟨fun n => 2 * n + 2⟩ ≼ ⟨id⟩ := by use 2; intro n; simp
-  simp [h_bound]
+  simp only [h_bound, true_and]
   intro input
   let n := rev_dya.invFun input
   have hn : rev_dya n = input := by
     exact Function.rightInverse_invFun rev_dya_bijective.2 input
   rw [← hn]
-  simp [Function.leftInverse_invFun rev_dya_bijective.1 n]
+  simp only [Function.comp_apply, Function.leftInverse_invFun rev_dya_bijective.1 n,
+    Nat.succ_eq_add_one]
   have h_len : ((n + 2).log2 + 1) ≤ (2 * (rev_dya n).length + 2) := by
-    simp [rev_dya_length]
+    simp only [rev_dya_length, add_le_add_iff_right]
     calc (n + 2).log2
-        _ ≤ (2 * n + 2).log2 := by simp [Nat.log2_eq_log_two]; exact Nat.log_monotone (by linarith)
+        _ ≤ (2 * n + 2).log2 := by
+          simpa [Nat.log2_eq_log_two] using (Nat.log_monotone (by linarith))
         _ = (2 * (n + 1)).log2 := by ring_nf
         _ = (n + 1).log2 + 1 := by simp [Nat.log2_two_mul]
         _ ≤ 2 * (n + 1).log2 + 1 := by linarith
