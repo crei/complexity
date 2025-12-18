@@ -36,7 +36,7 @@ def to_combined_configuration {k : Nat} {Q1 Q2 Γ : Type*}
     [Inhabited Γ] [Coe Q1 Q2]
     (conf : Configuration k Q1 Γ) :
     Configuration k Q2 Γ :=
-  { state := conf.state, tapes := conf.tapes }
+  { state := ↑conf.state, tapes := conf.tapes }
 
 -- Behaviour of Transtition.step with `do_after`.
 
@@ -79,21 +79,24 @@ theorem behaviour_n_steps_first_part {k : ℕ} {Q1 Q2 Γ : Type*}
     [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
     (σ₁ : Transition k Q1 Γ) (final : Q1) (start : Q2) (σ₂ : Transition k Q2 Γ)
     (conf : Configuration k Q1 Γ) (n : Nat)
-    (no_final : ∀ n' < n, (σ₁.n_steps conf n').state ≠ final) :
-    (do_after σ₁ final start σ₂).n_steps (to_combined_configuration conf) n
-    = to_combined_configuration (σ₁.n_steps conf n) := by
+    (no_final : ∀ n' < n, (σ₁.step^[n'] conf).state ≠ final) :
+    (do_after σ₁ final start σ₂).step^[n] (to_combined_configuration conf)
+    = to_combined_configuration (σ₁.step^[n] conf) := by
   induction n with
   | zero => rfl
   | succ n ih =>
     calc
-      (do_after σ₁ final start σ₂).n_steps (to_combined_configuration conf) (n + 1)
+      (do_after σ₁ final start σ₂).step^[n + 1] (to_combined_configuration conf)
         = (do_after σ₁ final start σ₂).step
-            ((do_after σ₁ final start σ₂).n_steps (to_combined_configuration conf) n) := by rfl
-      _ = (do_after σ₁ final start σ₂).step (to_combined_configuration (σ₁.n_steps conf n)) := by
+            ((do_after σ₁ final start σ₂).step^[n] (to_combined_configuration conf)) := by
+        rw [Function.iterate_succ_apply']
+      _ = (do_after σ₁ final start σ₂).step (to_combined_configuration (σ₁.step^[n] conf)) := by
         rw [ih (by intro n' lt; exact no_final n' (Nat.lt_succ_of_lt lt))]
-      _ = to_combined_configuration (σ₁.n_steps conf (n + 1)) := by
+      _ = to_combined_configuration (σ₁.step (σ₁.step^[n] conf)) := by
         apply behaviour_first_part
         exact no_final n (Nat.lt_succ_self n)
+      _ = to_combined_configuration (σ₁.step^[n + 1] conf) := by
+        simp [Function.iterate_succ_apply']
 
 theorem n_steps_from_final {k : ℕ} {Q1 Q2 Γ : Type*}
     [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
@@ -101,50 +104,54 @@ theorem n_steps_from_final {k : ℕ} {Q1 Q2 Γ : Type*}
     (conf₁ : Configuration k Q1 Γ) (n : Nat)
     (h_final : conf₁.state = final) :
     let conf₂ : Configuration k Q2 Γ := { state := start, tapes := conf₁.tapes }
-    (do_after σ₁ final start σ₂).n_steps (to_combined_configuration conf₁) n.succ
-    = to_combined_configuration (σ₂.n_steps conf₂ n.succ) := by
+    (do_after σ₁ final start σ₂).step^[n.succ] (to_combined_configuration conf₁)
+    = to_combined_configuration (σ₂.step^[n.succ] conf₂) := by
   induction n with
-  | zero => simp [h_final, Transition.n_steps, step_from_final]
+  | zero => simp [h_final, step_from_final]
   | succ n ih =>
      intro conf₂
      let σ := do_after σ₁ final start σ₂
      calc
-      σ.n_steps (to_combined_configuration conf₁) (n.succ.succ)
-        = σ.step (σ.n_steps (to_combined_configuration conf₁) n.succ) := by rfl
-      _ = σ.step (to_combined_configuration (σ₂.n_steps conf₂ n.succ)) := by rw [ih]
-      _ = to_combined_configuration (σ₂.n_steps conf₂ n.succ.succ) := by
-        apply behaviour_second_part
+      σ.step^[n.succ.succ] (to_combined_configuration conf₁)
+        = σ.step (σ.step^[n.succ] (to_combined_configuration conf₁)) := by
+          rw [Function.iterate_succ_apply']
+      _ = σ.step (to_combined_configuration (σ₂.step^[n.succ] conf₂)) := by rw [ih]
+      _ = to_combined_configuration (σ₂.step^[n.succ.succ] conf₂) := by
+        rw [Function.iterate_succ_apply]
+        rw [behaviour_second_part]
+        rw [← Function.iterate_succ_apply, ← Function.iterate_succ_apply' (f := σ₂.step) n.succ]
+
 
 theorem behaviour_n_steps_second_part {k : ℕ} {Q1 Q2 Γ : Type*}
     [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
     (σ₁ : Transition k Q1 Γ) (final : Q1) (start : Q2) (σ₂ : Transition k Q2 Γ)
     (conf : Configuration k Q2 Γ) (n : Nat) :
-    (do_after σ₁ final start σ₂).n_steps (to_combined_configuration conf) n
-    = to_combined_configuration (σ₂.n_steps conf n) := by
+    (do_after σ₁ final start σ₂).step^[n] (to_combined_configuration conf)
+    = to_combined_configuration (σ₂.step^[n] conf) := by
   induction n with
   | zero => rfl
-  | succ n ih => simp [ih, behaviour_second_part, Transition.n_steps]
+  | succ n ih => simp [ih, behaviour_second_part, Function.iterate_succ_apply']
 
 theorem behaviour_n_steps_crossing {k : ℕ} {Q1 Q2 Γ : Type*}
     [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
     (σ₁ : Transition k Q1 Γ) (final : Q1) (start : Q2) (σ₂ : Transition k Q2 Γ)
     (conf : Configuration k Q1 Γ) (n₁ n₂ : Nat)
-    (no_final : ∀ n' < n₁, (σ₁.n_steps conf n').state ≠ final)
-    (h_final : (σ₁.n_steps conf n₁).state = final) :
-    let conf₂ : Configuration k Q2 Γ := { state := start, tapes := (σ₁.n_steps conf n₁).tapes }
-    (do_after σ₁ final start σ₂).n_steps (to_combined_configuration conf) (n₁ + n₂ + 1)
-    = to_combined_configuration (σ₂.n_steps conf₂ (n₂ + 1)) := by
+    (no_final : ∀ n' < n₁, (σ₁.step^[n'] conf).state ≠ final)
+    (h_final : (σ₁.step^[n₁] conf).state = final) :
+    let conf₂ : Configuration k Q2 Γ := { state := start, tapes := (σ₁.step^[n₁] conf).tapes }
+    (do_after σ₁ final start σ₂).step^[n₁ + n₂ + 1] (to_combined_configuration conf)
+    = to_combined_configuration (σ₂.step^[n₂ + 1] conf₂) := by
   intro conf₂
   let σ := do_after σ₁ final start σ₂
-  have part₁ : σ.n_steps (to_combined_configuration conf) n₁
-                      = to_combined_configuration (σ₁.n_steps conf n₁) := by
+  have part₁ : σ.step^[n₁] (to_combined_configuration conf)
+                      = to_combined_configuration (σ₁.step^[n₁] conf) := by
     apply behaviour_n_steps_first_part; exact no_final
   calc
-    σ.n_steps (to_combined_configuration conf) (n₁ + n₂.succ)
-      = σ.n_steps (σ.n_steps (to_combined_configuration conf) n₁) n₂.succ := by
-        simp [n_steps_addition]
-    _ = σ.n_steps (to_combined_configuration (σ₁.n_steps conf n₁)) n₂.succ := by rw [part₁]
-    _ = to_combined_configuration (σ₂.n_steps conf₂ n₂.succ) := by
+    σ.step^[n₁ + n₂.succ] (to_combined_configuration conf)
+      = σ.step^[n₂.succ] (σ.step^[n₁] (to_combined_configuration conf)) := by
+        rw [← Function.iterate_add_apply, Nat.add_comm]
+    _ = σ.step^[n₂.succ] (to_combined_configuration (σ₁.step^[n₁] conf)) := by rw [part₁]
+    _ = to_combined_configuration (σ₂.step^[n₂.succ] conf₂) := by
         apply n_steps_from_final; exact h_final
 
 --- Main theorem that fully describes Transition.n_steps for the
@@ -153,19 +160,19 @@ theorem behaviour_n_steps {k : ℕ} {Q1 Q2 Γ : Type*}
   [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
   (σ₁ : Transition k Q1 Γ) (final : Q1) (start : Q2) (σ₂ : Transition k Q2 Γ)
   (conf : Configuration k Q1 Γ) (n : Nat) :
-  (do_after σ₁ final start σ₂).n_steps (to_combined_configuration conf) n =
-    if h : ∃ n' < n, (σ₁.n_steps conf n').state = final then
+  (do_after σ₁ final start σ₂).step^[n] (to_combined_configuration conf) =
+    if h : ∃ m < n, (σ₁.step^[m] conf).state = final then
       let m := Nat.find h
-      let conf₂ : Configuration k Q2 Γ := { state := start, tapes := (σ₁.n_steps conf m).tapes }
-      to_combined_configuration (σ₂.n_steps conf₂ (n - m))
+      let conf₂ : Configuration k Q2 Γ := { state := start, tapes := (σ₁.step^[m] conf).tapes }
+      to_combined_configuration (σ₂.step^[n - m] conf₂)
     else
-      to_combined_configuration (σ₁.n_steps conf n) := by
-  by_cases h : ∃ n' < n, (σ₁.n_steps conf n').state = final
+      to_combined_configuration (σ₁.step^[n] conf) := by
+  by_cases h : ∃ n' < n, (σ₁.step^[n'] conf).state = final
   · let m := Nat.find h
-    have hm_spec : m < n ∧ (σ₁.n_steps conf m).state = final := Nat.find_spec h
+    have hm_spec : m < n ∧ (σ₁.step^[m] conf).state = final := Nat.find_spec h
     have hm_lt : m < n := hm_spec.1
-    have h_final : (σ₁.n_steps conf m).state = final := hm_spec.2
-    have no_final : ∀ n' < m, (σ₁.n_steps conf n').state ≠ final := by
+    have h_final : (σ₁.step^[m] conf).state = final := hm_spec.2
+    have no_final : ∀ n' < m, (σ₁.step^[n'] conf).state ≠ final := by
       intro n' hn' hfin'
       have : m ≤ n' := Nat.find_min' h ⟨Nat.lt_trans hn' hm_lt, hfin'⟩
       exact (not_le_of_gt hn') this
@@ -181,7 +188,7 @@ theorem behaviour_n_steps {k : ℕ} {Q1 Q2 Γ : Type*}
       behaviour_n_steps_crossing (σ₂:=σ₂) (n₁:=m) (n₂:=n - m - 1) (no_final:=no_final)
     simp_all [m, Nat.succ_le_of_lt]
   · -- Case 2: we *never* hit `final` before `n`
-    have no_final : ∀ n' < n, (σ₁.n_steps conf n').state ≠ final := by
+    have no_final : ∀ n' < n, (σ₁.step^[n'] conf).state ≠ final := by
       intro n' hn'
       exact fun hfin => h ⟨n', hn', hfin⟩
     simpa [h] using behaviour_n_steps_first_part σ₁ final start σ₂ conf n no_final

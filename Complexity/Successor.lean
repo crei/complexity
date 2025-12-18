@@ -19,13 +19,17 @@ def succ_transition : Transition 1 (Fin 2) (Option OneTwo) :=
       | some .two => (0, fun _ => (some .one, some .right))
     | 1 => (1, (symbols ·, none))
 
+@[simp]
+lemma succ_transition.inert
+  (c : Configuration 1 (Fin 2) (Option OneTwo))
+  (h_is_stopped : c.state = 1) :
+  succ_transition.step c = c := by
+  unfold Transition.step; ext <;> simp [succ_transition, h_is_stopped]
+
 theorem stop_state_inert (tapes : Fin 1 → Turing.Tape (Option OneTwo)) (n : ℕ) :
-  succ_transition.n_steps ⟨1, tapes⟩ n = ⟨1, tapes⟩ := by
-  induction n with
-  | zero => rfl
-  | succ n ih =>
-    unfold Transition.n_steps
-    simp [succ_transition, Transition.step, ih]
+  succ_transition.step^[n] ⟨1, tapes⟩ = ⟨1, tapes⟩ := by
+  refine Function.iterate_fixed ?_ _
+  simp [succ_transition, Transition.step]
 
 -- A Turing machine that computes the successor of a
 -- reversely encoded dyadic number
@@ -34,13 +38,6 @@ def succ_tm : TM 1 (Fin 2) (Option OneTwo) := {
   startState := 0
   stopState := 1
 }
-
-@[simp]
-lemma succ_transition.inert
-  (c : Configuration 1 (Fin 2) (Option OneTwo))
-  (h_is_stopped : c.state = 1) :
-  succ_transition.step c = c := by
-  unfold Transition.step; ext <;> simp [succ_transition, h_is_stopped]
 
 def rev_dya (n : ℕ) : List OneTwo :=
   (dyadic_encoding_reverse n).map (fun x => if x then .two else .one)
@@ -95,23 +92,23 @@ lemma succ_step_even (n : ℕ) (pref : List (Option OneTwo)) :
 
 theorem succ_semantics (n : ℕ) (pref : List (Option OneTwo)) :
   ∃ shift : ℕ,
-  succ_transition.n_steps (⟨
+  succ_transition.step^[((n + 2).log2 + 1)] ⟨
     0, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option n))
-  ⟩) ((n + 2).log2 + 1) =
+  ⟩ =
   ⟨1, fun _ =>
     (Turing.Tape.move .right)^[shift] (Turing.Tape.mk₂ pref (rev_dya_option (n + 1)))⟩ := by
   revert pref
   refine dyadic_induction_on n ?_ ?_ ?_
   · intro pref
     use 0;
-    simp [Transition.n_steps, Transition.step, succ_transition, Turing.Tape.mk₂, default]
+    simp [Transition.step, succ_transition, Turing.Tape.mk₂, default]
     simp [rev_dya_option, rev_dya, dyadic_encoding_reverse]
   · intro n ih pref
     use 0
-    rw [← n_steps_first, succ_step_odd]
+    rw [Function.iterate_succ_apply, succ_step_odd]
     simp [stop_state_inert]
   · intro n ih pref
-    rw [← n_steps_first, succ_step_even]
+    rw [Function.iterate_succ_apply, succ_step_even]
     simp only [Fin.isValue, Turing.Tape.mk₂, Turing.Tape.move_right_mk', Turing.ListBlank.head_mk,
       List.headI_cons, Turing.ListBlank.cons_mk, Turing.ListBlank.tail_mk, List.tail_cons]
     rw [← Turing.Tape.mk₂]

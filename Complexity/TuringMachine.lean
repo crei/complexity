@@ -63,43 +63,6 @@ def Transition.step {k : Nat} {S} {Γ} [Inhabited Γ]
     tapes := fun i => performTapeOps (conf.tapes i) (tapeOps i).1 (tapeOps i).2
   }
 
--- TODO replace this with function iteration from Mathlib
-def Transition.n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) :
-  Configuration k S Γ :=
-  match n with
-  | 0 => conf
-  | Nat.succ m => σ.step (σ.n_steps conf m)
-
-@[simp]
-lemma n_steps_zero {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) :
-  σ.n_steps conf 0 = conf := by
-  rfl
-
-theorem n_steps_addition {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) (m n : Nat) :
-  σ.n_steps conf (n + m) = σ.n_steps (σ.n_steps conf n) m := by
-  induction m with
-  | zero => simp [Transition.n_steps]
-  | succ m ih => simp [Transition.n_steps, ih]
-
-@[simp]
-lemma single_step {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) :
-  σ.n_steps conf 1 = σ.step conf := by
-  rfl
-
---- In contrast to `Transition.n_steps`, extracts the first step and not the last.
-@[simp]
-theorem n_steps_first {k : Nat} {S} {Γ} [Inhabited Γ]
-  (σ : Transition k S Γ) (conf : Configuration k S Γ) (n : Nat) :
-  σ.n_steps (σ.step conf) n = σ.n_steps conf (n + 1) := by
-  calc σ.n_steps (σ.step conf) n
-      = σ.n_steps (σ.n_steps conf 1) n := by rfl
-      _ = σ.n_steps conf (1 + n) := by simp [n_steps_addition]
-      _ = σ.n_steps conf (n + 1) := by rw [Nat.add_comm 1 n]
-
 def TM.initial_configuration {k : Nat} {S} {Γ}
   (tm : TM k S (Option Γ)) (input : List Γ) : Configuration k S (Option Γ) :=
   let firstTape := Turing.Tape.mk₁ (input.map some)
@@ -124,7 +87,7 @@ def tape_equiv_up_to_shift {Γ} [Inhabited Γ]
 
 def TM.configurations_on_input {k : Nat} {S} {Γ}
   (tm : TM k S (Option Γ)) (input : List Γ) (t : Nat) : Configuration k S (Option Γ) :=
-  tm.transition.n_steps (TM.initial_configuration tm input) t
+  tm.transition.step^[t] (TM.initial_configuration tm input)
 
 def TM.stops_and_outputs {k : Nat} {S} {Γ}
   (tm : TM (k + 1) S (Option Γ)) (input : List Γ) (output : List Γ) (t : Nat) : Prop :=
@@ -178,7 +141,9 @@ lemma TM.runs_in_time_of_inert {k : Nat} {S} {Γ}
         calc tm.configurations_on_input input (t' + Nat.succ d)
           = tm.configurations_on_input input (Nat.succ (t' + d)) := by rw [Nat.add_succ]
           _ = tm.transition.step (tm.configurations_on_input input (t' + d)) := by
-              unfold TM.configurations_on_input; simp [Transition.n_steps]
+              unfold TM.configurations_on_input
+              rw [Function.Commute.self_iterate tm.transition.step]
+              simp
           _ = tm.configurations_on_input input t' := by simpa [ih] using h_inert _ h_t'_stops
     have h_stops_at_t' : tm.stops_and_outputs input output t' := by
       have h_t_eq_t'_plus : t = t' + (t - t') := by omega
@@ -214,7 +179,7 @@ lemma head_position_update_at_most_one {k : ℕ} {S} {Γ} [Inhabited Γ]
 def head_position {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) : ℤ :=
   -- sum over integers less than n
-  ∑ j ∈ Finset.range n, head_position_update (σ.n_steps conf j) σ i
+  ∑ j ∈ Finset.range n, head_position_update (σ.step^[j] conf) σ i
 
 @[simp]
 lemma head_position_zero {k : ℕ} {S} {Γ} [Inhabited Γ]
@@ -232,7 +197,7 @@ lemma head_position_single_step {k : ℕ} {S} {Γ} [Inhabited Γ]
 lemma head_position_last_step {k : ℕ} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
   head_position conf σ i (n + 1) =
-    head_position conf σ i n + head_position_update (σ.n_steps conf n) σ i := by
+    head_position conf σ i n + head_position_update (σ.step^[n] conf) σ i := by
   unfold head_position
   rw [Finset.sum_range_succ]
 
@@ -240,10 +205,10 @@ lemma head_position_last_step {k : ℕ} {S} {Γ} [Inhabited Γ]
 lemma head_position_add_steps {k : ℕ} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n m : ℕ) :
   head_position conf σ i (n + m) =
-    head_position conf σ i n + head_position (σ.n_steps conf n) σ i m := by
+    head_position conf σ i n + head_position (σ.step^[n] conf) σ i m := by
   unfold head_position
   rw [Finset.sum_range_add]
-  simp [n_steps_addition]
+  simp [← Function.iterate_add_apply, Nat.add_comm]
 
 lemma head_position_change_at_most_one {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
