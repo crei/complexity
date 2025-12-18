@@ -105,6 +105,19 @@ def TM.initial_configuration {k : Nat} {S} {Γ}
   let firstTape := Turing.Tape.mk₁ (input.map some)
   { state := tm.startState, tapes := fun i => if i.val = 0 then firstTape else default }
 
+
+@[simp]
+lemma TM.initial_configuration_first_tape {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (input : List Γ) :
+  (tm.initial_configuration input).tapes 0 = Turing.Tape.mk₁ (input.map some) := by
+  simp [TM.initial_configuration]
+
+@[simp]
+lemma TM.initial_configuration_other_tapes {k : Nat} {S} {Γ}
+  (tm : TM k.succ S (Option Γ)) (input : List Γ) (i : Fin k.succ) (h_i_nonzero : i ≠ 0) :
+  (TM.initial_configuration tm input).tapes i = default := by
+  simp [TM.initial_configuration, h_i_nonzero]
+
 def tape_equiv_up_to_shift {Γ} [Inhabited Γ]
   (t1 t2 : Turing.Tape Γ) : Prop :=
   ∃ shift : ℕ, ∃ dir, t2 = (Turing.Tape.move dir)^[shift] t1
@@ -186,8 +199,8 @@ def head_position_update {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) : ℤ :=
   match ((σ conf.state fun j => (conf.tapes j).head).2 i).2 with
   | none => 0
-  | some Turing.Dir.left => 1
-  | some Turing.Dir.right => -1
+  | some Turing.Dir.left => -1
+  | some Turing.Dir.right => 1
 
 lemma head_position_update_at_most_one {k : ℕ} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) :
@@ -209,6 +222,21 @@ lemma head_position_zero {k : ℕ} {S} {Γ} [Inhabited Γ]
   head_position conf σ i 0 = 0 := by
   rfl
 
+@[simp]
+lemma head_position_single_step {k : ℕ} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) :
+  head_position conf σ i 1 = head_position_update conf σ i := by
+  unfold head_position
+  simp
+
+lemma head_position_last_step {k : ℕ} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
+  head_position conf σ i (n + 1) =
+    head_position conf σ i n + head_position_update (σ.n_steps conf n) σ i := by
+  unfold head_position
+  rw [Finset.sum_range_succ]
+
+
 lemma head_position_add_steps {k : ℕ} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n m : ℕ) :
   head_position conf σ i (n + m) =
@@ -220,9 +248,7 @@ lemma head_position_add_steps {k : ℕ} {S} {Γ} [Inhabited Γ]
 lemma head_position_change_at_most_one {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
   |(head_position conf σ i (n + 1)) - (head_position conf σ i n)| ≤ 1 := by
-  simp only [head_position_add_steps, add_sub_cancel_left]
-  unfold head_position
-  simp [head_position_update_at_most_one]
+  simp [head_position_add_steps, head_position_update_at_most_one]
 
 lemma head_position_variability (f : ℕ → ℤ) (m n : ℕ)
   (h_var : ∀ n : ℕ, |f (n + 1) - f n| ≤ 1) :
@@ -263,6 +289,42 @@ def Configuration.tape_space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   have h_nonempty : head_positions.Nonempty := by simp [head_positions]
   ((head_positions.max' h_nonempty) - (head_positions.min' h_nonempty) + 1).toNat
 
+lemma Configuration.tape_space_n_steps_exists_min {k : Nat} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) (n : ℕ) :
+  ∃ min : ℤ,
+    (∀ m ≤ n, min ≤ head_position conf σ i m ∧
+    head_position conf σ i m < min + (conf.tape_space_n_steps σ i n)) := by
+  let head_positions := (Finset.range (n + 1)).image (head_position conf σ i)
+  have h_nonempty : head_positions.Nonempty := by simp [head_positions]
+  use head_positions.min' h_nonempty
+  intro m h_m_le
+  constructor
+  · refine Finset.min'_le head_positions (head_position conf σ i m) ?_
+    apply Finset.mem_image_of_mem
+    simp only [Finset.mem_range]
+    linarith
+  · unfold Configuration.tape_space_n_steps
+    have h_max_ge_min : 0 ≤ head_positions.max' h_nonempty -
+                            head_positions.min' h_nonempty + 1 := by
+      have : head_positions.min' h_nonempty ≤ head_positions.max' h_nonempty + 1 := by
+        apply Int.le_add_one
+        simp [Finset.max'_mem, Finset.min'_le head_positions]
+      linarith
+    rw [Int.toNat_of_nonneg h_max_ge_min]
+    simp [← Int.add_assoc]
+    have h_le := head_positions.le_max' (head_position conf σ i m) (by
+      apply Finset.mem_image_of_mem
+      simpa [Finset.mem_range] using Nat.lt_add_one_of_le h_m_le)
+    linarith
+
+lemma Configuration.tape_space_n_steps.monotone {k : ℕ} {S} {Γ} [Inhabited Γ]
+  (conf : Configuration k S Γ) (σ : Transition k S Γ) (i : Fin k) :
+  Monotone (conf.tape_space_n_steps σ i) := by
+  intro n₁ n₂ h_le
+  apply Int.toNat_le_toNat
+  gcongr
+  · apply Finset.sup'_mono; refine Finset.image_subset_image ?_; gcongr
+  · apply Finset.inf'_mono; refine Finset.image_subset_image ?_; gcongr
 
 def Configuration.space_n_steps {k : Nat} {S} {Γ} [Inhabited Γ]
   (conf : Configuration k S Γ) (σ : Transition k S Γ) (n : Nat) : ℕ :=

@@ -62,10 +62,61 @@ lemma Bounds.add_le {f : ℕ → ℕ} {c : ℕ} : ⟨f + c⟩ ≼ ⟨f⟩ := by
   have hf_le : f n ≤ (c + 1) * f n := by exact Nat.le_mul_of_pos_left _ (by omega)
   omega
 
+lemma Bounds.le_add {f : ℕ → ℕ} {c : ℕ} : ⟨f⟩ ≼ ⟨f + c⟩ := by
+  use 1
+  intro n
+  simp only [Pi.add_apply, Pi.natCast_apply, Nat.cast_id, Pi.mul_apply]
+  omega
+
+lemma Bounds.le_mul {f : ℕ → ℕ} {c : ℕ} (h : c ≠ 0) : ⟨f⟩ ≼ ⟨c * f⟩ := by
+  use 1
+  intro n
+  dsimp
+  calc f n ≤ c * f n := Nat.le_mul_of_pos_left (f n) (Nat.pos_of_ne_zero h)
+    _ ≤ 1 * (c * f n) + 1 := by omega
+
 instance : Trans (· ≼ ·) (· ≤ ·) (· ≼ ·) where
   trans := Bounds.trans_is_bounds_le
 
 instance : Trans (· ≼ ·) (· ≼ ·) (· ≼ ·) where
   trans := Bounds.trans_is_bounds_le
 
-def Bound.degree (f : Bound) := { g : ℕ → ℕ // Bound.le ⟨ g ⟩ f }
+def Bound.degree (f : ℕ → ℕ) : Set (ℕ → ℕ) :=
+  { g : ℕ → ℕ | Bound.le ⟨g⟩ ⟨f⟩ }
+
+@[simp]
+lemma degree_add_eq_degree {f : ℕ → ℕ} {c₁ : ℕ} :
+  Bound.degree (fun n ↦ (f n) + c₁) = Bound.degree f := by
+  ext g
+  simp only [Bound.degree, Set.mem_setOf_eq]
+  constructor
+  · intro hg
+    exact Bound.le.trans ⟨g⟩ ⟨f + c₁⟩ ⟨f⟩ hg Bounds.add_le
+  · intro hg
+    exact Bound.le.trans ⟨g⟩ ⟨f⟩ ⟨f + c₁⟩ hg Bounds.le_add
+
+
+@[simp]
+lemma degree_mul_eq_degree {f : ℕ → ℕ} {c₁ : ℕ} {h_not_zero : c₁ ≠ 0} :
+  Bound.degree (fun n ↦ c₁ * (f n)) = Bound.degree f := by
+  ext g
+  simp only [Bound.degree, Set.mem_setOf_eq]
+  constructor
+  · intro hg
+    exact Bound.le.trans ⟨g⟩ ⟨c₁ * f⟩ ⟨f⟩ hg Bounds.mul_le
+  · intro hg
+    exact Bound.le.trans ⟨g⟩ ⟨f⟩ ⟨c₁ * f⟩ hg (Bounds.le_mul h_not_zero)
+
+
+@[simp]
+lemma Bound.le_iff_degree_subset_degree {f g : ℕ → ℕ} :
+  ⟨f⟩ ≼ ⟨g⟩ ↔ Bound.degree f ⊆ Bound.degree g := by
+  constructor
+  · intro hfg h hhf
+    exact Bound.le.trans ⟨h⟩ ⟨f⟩ ⟨g⟩ hhf hfg
+  · intro h_subset
+    apply h_subset
+    use 1
+    intro n
+    dsimp
+    omega
