@@ -6,3 +6,4 @@ import Complexity.TMComposition
 import Complexity.Classes
 import Complexity.TimeInSpace
 import Complexity.Bounds
+import Complexity.SpaceInTime

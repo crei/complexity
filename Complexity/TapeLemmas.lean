@@ -5,7 +5,6 @@ import Mathlib.Computability.Tape
 theorem Tape.write_mk'_list {Γ} [Inhabited Γ] (a b : Γ) (L : Turing.ListBlank Γ) (R : List Γ) :
     (Turing.Tape.mk' L (Turing.ListBlank.mk (a :: R))).write b =
       Turing.Tape.mk' L (Turing.ListBlank.mk (b :: R)) := by
-  rw [← Turing.ListBlank.cons_mk]
   simp
 
 @[simp]
@@ -74,3 +73,11 @@ lemma Tape.mk₂_nth' {Γ} [Inhabited Γ] (i : ℤ)
       | [] => rfl
       | x :: xs => simp only [List.getElem?_cons_succ]; rfl
   | Int.negSucc k => by unfold Turing.Tape.nth; simp; rfl
+
+@[simp]
+lemma Tape.default_nth {Γ} [Inhabited Γ] (i : ℤ) :
+  (default : Turing.Tape Γ).nth i = default := by
+  match i with
+  | 0 => rfl
+  | (n + 1 : ℕ) => rfl
+  | Int.negSucc k => rfl
