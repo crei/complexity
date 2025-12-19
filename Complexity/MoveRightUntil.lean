@@ -37,14 +37,13 @@ lemma move_right_multi {k : ℕ}
   (remaining_length : ℕ)
   (h_remaining : ∀ j < remaining_length, ¬ stop_condition ((conf.tapes tape).nth j)) :
   -- TODO do this without defining conf'?
-  let conf' := (move_right_until tape stop_condition).n_steps conf remaining_length
+  let conf' := (move_right_until tape stop_condition).step^[remaining_length] conf
   conf'.state = 0 ∧
   conf'.tapes tape = (Turing.Tape.move .right)^[remaining_length] (conf.tapes tape) := by
   induction remaining_length with
   | zero => exact ⟨h_state, rfl⟩
   | succ m ih =>
-    unfold Transition.n_steps
-    let conf_pre := (move_right_until tape stop_condition).n_steps conf m
+    let conf_pre := (move_right_until tape stop_condition).step^[m] conf
     have ih_cond : ∀ j < m, ¬ stop_condition ((conf.tapes tape).nth j) := by
       intro j hj
       apply h_remaining
@@ -52,6 +51,7 @@ lemma move_right_multi {k : ℕ}
     have pre_state : conf_pre.state = 0 := (ih ih_cond).left
     have pre_tape : conf_pre.tapes tape = (Turing.Tape.move .right)^[m] (conf.tapes tape) :=
       (ih ih_cond).right
+    rw [Function.iterate_succ_apply']
     intro conf'
     have h: conf' = (move_right_until tape stop_condition).step conf_pre := rfl
     have h_head : ¬ stop_condition (conf_pre.tapes tape).head := by
@@ -79,16 +79,16 @@ lemma move_right_until_steps {k : ℕ}
   (remaining_length : ℕ) -- TODO use "find"
   (h_remaining : ∀ j < remaining_length, ¬ stop_condition ((conf.tapes tape).nth j))
   (h_stop : stop_condition ((conf.tapes tape).nth remaining_length)) :
-  let conf' := (move_right_until tape stop_condition).n_steps conf (remaining_length + 1)
+  let conf' := (move_right_until tape stop_condition).step^[remaining_length.succ] conf
   conf'.state = 1 ∧
   conf'.tapes tape = (Turing.Tape.move .right)^[remaining_length] (conf.tapes tape) := by
-  let conf_pre := (move_right_until tape stop_condition).n_steps conf remaining_length
+  let conf_pre := (move_right_until tape stop_condition).step^[remaining_length] conf
   have pre_state : conf_pre.state = 0 := by
     simp [move_right_multi _ _ conf h_state remaining_length h_remaining, conf_pre]
   have pre_tape : conf_pre.tapes tape =
     (Turing.Tape.move .right)^[remaining_length] (conf.tapes tape) :=
     (move_right_multi _ _ conf h_state remaining_length h_remaining).right
-  rw [Transition.n_steps]
+  rw [Function.iterate_succ_apply']
   intro conf'
   have h_conf_pre : conf' = (move_right_until tape stop_condition).step conf_pre := rfl
   have h_head : stop_condition (conf_pre.tapes tape).head := by

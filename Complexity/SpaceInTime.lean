@@ -21,7 +21,7 @@ def write_operation {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (i : Fin k) (n : ℕ) : WriteOperation Γ :=
   {
     pos := head_position conf σ i n,
-    symbol := next_write_symbol σ (σ.n_steps conf n) i
+    symbol := next_write_symbol σ (σ.step^[n] conf) i
   }
 
 @[simp]
@@ -33,7 +33,7 @@ lemma write_operation_pos {k : Nat} {S} {Γ} [Inhabited Γ]
 @[simp]
 lemma write_operation_n_step_symbol {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (i : Fin k) (n : ℕ) :
-  (write_operation σ (σ.n_steps conf n) i 0).symbol = (write_operation σ conf i n).symbol := by
+  (write_operation σ (σ.step^[n] conf) i 0).symbol = (write_operation σ conf i n).symbol := by
   rfl
 
 def Turing.Tape.apply_write_operation {Γ} [Inhabited Γ]
@@ -112,7 +112,7 @@ lemma tape_step_is_write_operations {k : Nat} {S} {Γ} [Inhabited Γ]
   simp only [head_position_single_step]
   unfold write_operation next_write_symbol Transition.step Turing.Tape.apply_write_operation
     performTapeOps Turing.Tape.write_at head_position_update
-  simp only [n_steps_zero, head_position_zero, move_int_zero, neg_zero, Int.reduceNeg]
+  simp only [head_position_zero, move_int_zero, neg_zero, Int.reduceNeg]
   match ((σ conf.state fun i ↦ (conf.tapes i).head).2 i).2 with
   | some .left => rfl
   | some .right => rfl
@@ -120,13 +120,13 @@ lemma tape_step_is_write_operations {k : Nat} {S} {Γ} [Inhabited Γ]
 
 lemma n_steps_tapes_eq_static_tape {k : Nat} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (i : Fin k) (n : ℕ) :
-  (σ.n_steps conf n).tapes i =
+  (σ.step^[n] conf).tapes i =
     (static_tape_up_to σ conf i n).move_int (head_position conf σ i n) := by
   induction n with
   | zero => rfl
   | succ n ih =>
-    unfold Transition.n_steps static_tape_up_to
-    rw [head_position_last_step, ← move_int_move_int, List.range_succ]
+    unfold static_tape_up_to
+    rw [Function.iterate_succ_apply', head_position_last_step, ← move_int_move_int, List.range_succ]
     unfold static_tape_up_to at ih
     simp [tape_step_is_write_operations, ih]
 
@@ -184,7 +184,7 @@ lemma tapes_card_of_fixed_tape_card_head_position_card
   {k : ℕ} {S} [Fintype S] {Γ} [Inhabited Γ] [Fintype Γ]
   (σ : Transition k S Γ) (conf₀ : Configuration k S Γ) (n : ℕ)
   (i : Fin k) :
-  ((fun n' => (σ.n_steps conf₀ n').tapes i) '' (Finset.range n)).encard ≤
+  ((fun n' => (σ.step^[n'] conf₀).tapes i) '' (Finset.range n)).encard ≤
   ((static_tape_up_to σ conf₀ i ·) '' (Finset.range n)).encard *
      ((head_position conf₀ σ i ·) '' (Finset.range n)).encard := by
   simp only [n_steps_tapes_eq_static_tape]
@@ -243,14 +243,14 @@ lemma tape_card_of_head_positions_bounded
   (σ : Transition k S Γ) (conf₀ : Configuration k S Γ) (n : ℕ)
   (i : Fin k) (min : ℤ) (space : ℕ)
   (h_bounded : head_position_bounded conf₀ σ i n min space) :
-  ((·.tapes i) '' ((σ.n_steps conf₀ ·) '' (Finset.range (n.succ)))).encard ≤
+  ((·.tapes i) '' ((σ.step^[·] conf₀) '' (Finset.range (n.succ)))).encard ≤
       (Fintype.card Γ)^space * space:= by
-  have : (·.tapes i) '' ((σ.n_steps conf₀ ·) '' (Finset.range (n.succ))) =
-         ((fun n' => (σ.n_steps conf₀ n').tapes i) '' (Finset.range n.succ)) := by
+  have : (·.tapes i) '' ((σ.step^[·] conf₀) '' (Finset.range (n.succ))) =
+         ((fun n' => (σ.step^[n'] conf₀).tapes i) '' (Finset.range n.succ)) := by
     ext tape
     simp [Set.image_image]
   rw [this]
-  calc ((fun n' => (σ.n_steps conf₀ n').tapes i) '' (Finset.range n.succ)).encard
+  calc ((fun n' => (σ.step^[n'] conf₀).tapes i) '' (Finset.range n.succ)).encard
       ≤ ((static_tape_up_to σ conf₀ i ·) '' (Finset.range n.succ)).encard *
         ((head_position conf₀ σ i ·) '' (Finset.range n.succ)).encard :=
           tapes_card_of_fixed_tape_card_head_position_card σ conf₀ n.succ i
@@ -280,10 +280,10 @@ lemma tapes_card_of_head_positions_bounded
   (σ : Transition k S Γ) (conf₀ : Configuration k S Γ) (n : ℕ)
   (min : Fin k → ℤ) (space : ℕ)
   (h_bounded : ∀ i, head_position_bounded conf₀ σ i n (min i) space) :
-  let configs := σ.n_steps conf₀ '' (Finset.range (n.succ))
+  let configs := (σ.step^[·] conf₀) '' (Finset.range (n.succ))
   ((fun c => (fun i => c.tapes i)) '' configs).encard ≤
       (((Fintype.card Γ)^space) * space)^k := by
-  let configs := σ.n_steps conf₀ '' ↑(Finset.range n.succ)
+  let configs := (σ.step^[·] conf₀) '' ↑(Finset.range n.succ)
   -- A set of "some" tuples is the subset of the full cartesian product.
   have h_subset : ((fun c i ↦ c.tapes i) '' configs) ⊆
     { f : Fin k → _ | ∀ i, ∃ c ∈ configs, (c.tapes i) = f i } := by
@@ -317,9 +317,9 @@ lemma configuration_card_of_head_positions_bounded
   (σ : Transition k S Γ) (conf₀ : Configuration k S Γ) (n : ℕ)
   (min : Fin k → ℤ) (space : ℕ)
   (h_bounded : ∀ i, head_position_bounded conf₀ σ i n (min i) space) :
-  (σ.n_steps conf₀ '' (Finset.range (n.succ))).encard ≤
+  ((σ.step^[·] conf₀) '' (Finset.range (n.succ))).encard ≤
       (Fintype.card S) * (((Fintype.card Γ)^space) * space)^k := by
-  let configs := σ.n_steps conf₀ '' (Finset.range (n.succ))
+  let configs := (σ.step^[·] conf₀) '' (Finset.range (n.succ))
   have h_tape : ∏ i, ({ c.tapes i | c ∈ configs}.encard) ≤ ((Fintype.card Γ)^space * space)^k := by
     calc ∏ i, ((·.tapes i) '' configs).encard
         ≤ ∏ _, (((Fintype.card Γ)^space * space : ℕ) : ℕ∞) :=
@@ -357,8 +357,8 @@ theorem configuration_repeat_in_bounded_space
   (min : Fin k → ℤ) (space : ℕ)
   (h_bounded : ∀ i, head_position_bounded conf₀ σ i n (min i) space)
   (h_large : n > Fintype.card S * ((Fintype.card Γ ^ space) * space) ^ k) :
-  ∃ i₁ i₂, i₁ < i₂ ∧ i₂ ≤ n ∧ σ.n_steps conf₀ i₁ = σ.n_steps conf₀ i₂ := by
-  let configs := σ.n_steps conf₀ '' (Finset.range (n.succ) : Set ℕ)
+  ∃ i₁ i₂, i₁ < i₂ ∧ i₂ ≤ n ∧ σ.step^[i₁] conf₀ = σ.step^[i₂] conf₀ := by
+  let configs := (σ.step^[·] conf₀) '' (Finset.range (n.succ) : Set ℕ)
   have h_lt : configs.encard < (n.succ : ℕ∞) := by
     calc configs.encard
         ≤ (Fintype.card S) * (((Fintype.card Γ)^space) * space)^k :=
@@ -373,7 +373,7 @@ theorem configuration_repeat_in_bounded_space
     have : (↑img.card : ℕ∞) = configs.encard := by
       rw [← Set.Finite.coe_toFinset h_finite, Set.encard_coe_eq_coe_finsetCard]
     exact Nat.cast_lt.mp (this ▸ h_lt)
-  have h_maps : Set.MapsTo (σ.n_steps conf₀) (Finset.range (n.succ) : Set ℕ) (img : Set _) := by
+  have h_maps : Set.MapsTo (σ.step^[·] conf₀) (Finset.range (n.succ) : Set ℕ) (img : Set _) := by
     intro x hx; rw [Set.Finite.coe_toFinset]; exact ⟨x, hx, rfl⟩
   obtain ⟨i₁, hi₁, i₂, hi₂, hne, heq⟩ :=
     Finset.exists_ne_map_eq_of_card_lt_of_maps_to h_card_lt h_maps
@@ -388,22 +388,23 @@ theorem accepting_state_reached_in_bounded_steps
   {k : ℕ} {S} [Fintype S] {Γ} [Inhabited Γ] [Fintype Γ]
   (σ : Transition k S Γ) (conf₀ : Configuration k S Γ) (is_accepting : S → Bool)
   (min : Fin k → ℤ) (space : ℕ)
-  (n : ℕ) (h_accepting : is_accepting (σ.n_steps conf₀ n).state = true)
+  (n : ℕ) (h_accepting : is_accepting (σ.step^[n] conf₀).state = true)
   (h_bounded : ∀ i, head_position_bounded conf₀ σ i n (min i) space)
-  (h_first : ∀ i < n, is_accepting (σ.n_steps conf₀ i).state = false) :
+  (h_first : ∀ i < n, is_accepting (σ.step^[i] conf₀).state = false) :
   n ≤ Fintype.card S * ((Fintype.card Γ ^ space) * space) ^ k := by
   by_contra h_large; push_neg at h_large
   obtain ⟨i₁, i₂, h_lt, hi₂_le, h_eq⟩ :=
     configuration_repeat_in_bounded_space σ conf₀ n min space h_bounded h_large
   have hi₂_lt_n : i₂ < n := Nat.lt_of_le_of_ne hi₂_le (fun h => by
     subst h
-    have : is_accepting (σ.n_steps conf₀ i₁).state = false := h_first i₁ (by omega)
+    have : is_accepting (σ.step^[i₁] conf₀).state = false := h_first i₁ (by omega)
     rw [← h_eq] at h_accepting
     rw [this] at h_accepting
     trivial)
-  have h_eq' : σ.n_steps conf₀ (i₁ + (n - i₂)) = σ.n_steps conf₀ n := by
-    rw [n_steps_addition, h_eq, ← n_steps_addition]; congr 1; omega
-  have : is_accepting (σ.n_steps conf₀ (i₁ + (n - i₂))).state = false :=
+  have h_eq' : σ.step^[(i₁ + (n - i₂))] conf₀ = σ.step^[n] conf₀ := by
+    rw [Nat.add_comm, Function.iterate_add_apply, h_eq, ← Function.iterate_add_apply]
+    simp_all
+  have : is_accepting (σ.step^[(i₁ + (n - i₂))] conf₀).state = false :=
     h_first (i₁ + (n - i₂)) (by omega)
   rw [← h_eq'] at h_accepting
   rw [this] at h_accepting
@@ -428,9 +429,9 @@ lemma accepting_state_reached_in_time_of_bounded_space
   (conf₀ : Configuration k S Γ)
   (t s : ℕ)
   (stopState : S)
-  (h_stops : (σ.n_steps conf₀ t).state = stopState)
+  (h_stops : (σ.step^[t] conf₀).state = stopState)
   (h_space : ∀ i, (conf₀.tape_space_n_steps σ i t) ≤ s)
-  (h_first : ∀ i < t, (σ.n_steps conf₀ i).state ≠ stopState) :
+  (h_first : ∀ i < t, (σ.step^[i] conf₀).state ≠ stopState) :
   t ≤ Fintype.card S * ((Fintype.card Γ ^ s) * s) ^ k := by
   -- Get the minimum head position for each tape
   let min := fun i => Classical.choose (head_position_bounded_of_tape_space_n_steps σ conf₀ t i)
@@ -450,9 +451,9 @@ lemma accepting_state_reached_in_time_of_bounded_space
   -- Apply accepting_state_reached_in_bounded_steps
   classical
   let is_accepting := fun state => decide (state = stopState)
-  have h_accepting : is_accepting (σ.n_steps conf₀ t).state = true := by
+  have h_accepting : is_accepting (σ.step^[t] conf₀).state = true := by
     simp [is_accepting, h_stops]
-  have h_first' : ∀ i < t, is_accepting (σ.n_steps conf₀ i).state = false := by
+  have h_first' : ∀ i < t, is_accepting (σ.step^[i] conf₀).state = false := by
     intro i hi
     simp only [decide_eq_false_iff_not, is_accepting]
     intro h_eq
@@ -482,8 +483,8 @@ lemma accepting_state_reached_in_time_of_total_space
   (conf₀ : Configuration k S Γ)
   (t : ℕ)
   (stopState : S)
-  (h_stops : (σ.n_steps conf₀ t).state = stopState)
-  (h_first : ∀ i < t, (σ.n_steps conf₀ i).state ≠ stopState) :
+  (h_stops : (σ.step^[t] conf₀).state = stopState)
+  (h_first : ∀ i < t, (σ.step^[i] conf₀).state ≠ stopState) :
   t ≤ Fintype.card S *
     ((Fintype.card Γ ^ (conf₀.space_n_steps σ t)) * (conf₀.space_n_steps σ t)) ^ k := by
   apply accepting_state_reached_in_time_of_bounded_space
