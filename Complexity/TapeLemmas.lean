@@ -81,3 +81,28 @@ lemma Tape.default_nth {Γ} [Inhabited Γ] (i : ℤ) :
   | 0 => rfl
   | (n + 1 : ℕ) => rfl
   | Int.negSucc k => rfl
+
+@[simp]
+lemma Tape.mk₁_cons_head {Γ} [Inhabited Γ] (c : Γ) (ws : List Γ) :
+  (Turing.Tape.mk₁ (c :: ws)).head = c := by
+  rfl
+
+@[simp]
+lemma Tape.mk₁_nil_head {Γ} [Inhabited Γ] :
+  (Turing.Tape.mk₁ []).head = (default : Γ) := by
+  rfl
+
+@[simp]
+lemma Tape.write_left_mk₁ {Γ} [Inhabited Γ]
+  (c : Γ) (ws : List Γ) :
+  Turing.Tape.write c (Turing.Tape.move Turing.Dir.left (Turing.Tape.mk₁ ws)) =
+    Turing.Tape.mk₁ (c :: ws) := by
+  simp [Turing.Tape.mk₁, Turing.Tape.mk₂]
+
+@[simp]
+lemma Tape.mk₁_default {Γ} [Inhabited Γ] :
+  (Turing.Tape.mk₁ [(default : Γ)]) = Turing.Tape.mk₁ [] := by rfl
+
+@[simp]
+lemma Tape.write_mk₁_nil {Γ} [Inhabited Γ] (c : Γ) :
+  Turing.Tape.write c (Turing.Tape.mk₁ []) = Turing.Tape.mk₁ [c] := by rfl

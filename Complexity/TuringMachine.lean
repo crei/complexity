@@ -117,6 +117,30 @@ lemma TM.runs_in_time_monotone {k : ℕ} {S} {Γ}
         _ ≤ t₂ := h_le
   · exact h_exact
 
+--- If a TM stays inert when reaching the stop state, any stopping configuration
+--- reachable from a certain configuration is the same.
+lemma inert_perpetually {k : ℕ} {Q} {Γ} [Inhabited Γ]
+  (tm : TM k Q Γ)
+  (h_inert_after_stop : ∀ conf, conf.state = tm.stopState → tm.transition.step conf = conf)
+  (conf₀ : Configuration k Q Γ)
+  (t t' : ℕ)
+  (h_stop_at_t' : (tm.transition.step^[t'] conf₀).state = tm.stopState)
+  (h_stop_at_t : (tm.transition.step^[t] conf₀).state = tm.stopState) :
+  (tm.transition.step^[t] conf₀) = (tm.transition.step^[t'] conf₀) := by
+  wlog h_le : t ≤ t'
+  · symm
+    apply this tm h_inert_after_stop conf₀ t' t h_stop_at_t h_stop_at_t'
+    omega
+  · obtain ⟨d, rfl⟩ := Nat.exists_eq_add_of_le h_le
+    clear h_le h_stop_at_t'
+    induction d with
+    | zero => rfl
+    | succ d ih =>
+      simp only [Nat.add_succ, Function.iterate_succ_apply']
+      rw [h_inert_after_stop, ih]
+      rw [← ih]
+      exact h_stop_at_t
+
 -- If a TM stays inert when reaching the stop state, it suffices to show that it stops
 -- with the correct output (i.e. we do not need to find the first time step it reaches
 -- the stop state).
