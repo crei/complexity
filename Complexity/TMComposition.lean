@@ -11,11 +11,19 @@ instance {Q1 Q2 : Type*} : Coe Q1 (CombinedState Q1 Q2) :=
 instance {Q1 Q2 : Type*} : Coe Q2 (CombinedState Q1 Q2) :=
   ⟨CombinedState.second⟩
 
+@[simp]
+theorem coe_first_eq {Q1 Q2 : Type*} (q : Q1) :
+    (↑q : CombinedState Q1 Q2) = CombinedState.first q := rfl
+
+@[simp]
+theorem coe_second_eq {Q1 Q2 : Type*} (q : Q2) :
+    (↑q : CombinedState Q1 Q2) = CombinedState.second q := rfl
+
 -- Combine two transitions: run σ₁ until reaching `final`, then switch to σ₂
 -- TODO The start state of σ₂ should maybe really be equal to the final state
 -- of σ₁. Now we have the situation where a configuration in state `final`
 -- and one in state `start` are NOT equal, but mabye they should.
-def do_after {k : Nat} {Q1 Q2 Γ : Type*}
+def transition_seq {k : Nat} {Q1 Q2 Γ : Type*}
     [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
     (σ₁ : Transition k Q1 Γ) (final : Q1) (start : Q2) (σ₂ : Transition k Q2 Γ) :
     Transition k (CombinedState Q1 Q2) Γ :=
@@ -32,13 +40,70 @@ def do_after {k : Nat} {Q1 Q2 Γ : Type*}
         let (q2', ops) := σ₂ q2 symbols_read
         (CombinedState.second q2', ops)
 
+-- Turing Machine that runs two Turing Machines sequentially.
+def TM.seq {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
+  (tm₁ : TM k Q1 Γ) (tm₂ : TM k Q2 Γ) : TM k (CombinedState Q1 Q2) Γ :=
+  TM.mk
+    (transition_seq tm₁.transition tm₁.stopState tm₂.startState tm₂.transition)
+    (↑tm₁.startState)
+    (if tm₂.startState = tm₂.stopState then
+        ↑tm₁.stopState
+      else
+      (↑tm₂.stopState))
+
+@[simp]
+lemma TM.seq_startState {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
+  (tm₁ : TM k Q1 Γ) (tm₂ : TM k Q2 Γ) :
+  (TM.seq tm₁ tm₂).startState = ↑tm₁.startState := rfl
+
+@[simp]
+lemma TM.seq_stopState_trivial {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
+  (tm₁ : TM k Q1 Γ) (tm₂ : TM k Q2 Γ) (h_tm₂_trivial : tm₂.startState = tm₂.stopState) :
+  (TM.seq tm₁ tm₂).stopState = ↑tm₁.stopState := by
+  simp [TM.seq, h_tm₂_trivial]
+
+@[simp]
+lemma TM.seq_stopState_nontrivial {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
+  (tm₁ : TM k Q1 Γ) (tm₂ : TM k Q2 Γ) (h_tm₂_trivial : tm₂.startState ≠ tm₂.stopState) :
+  (TM.seq tm₁ tm₂).stopState = ↑tm₂.stopState := by
+  simp [TM.seq, h_tm₂_trivial]
+
 def to_combined_configuration {k : Nat} {Q1 Q2 Γ : Type*}
     [Inhabited Γ] [Coe Q1 Q2]
     (conf : Configuration k Q1 Γ) :
     Configuration k Q2 Γ :=
   { state := ↑conf.state, tapes := conf.tapes }
 
--- Behaviour of Transtition.step with `do_after`.
+theorem to_combined_configuration_state {k : Nat} {Q1 Q2 Γ : Type*}
+    [Inhabited Γ] [Coe Q1 Q2]
+    (conf : Configuration k Q1 Γ) :
+    (to_combined_configuration conf : Configuration k Q2 Γ).state = ↑conf.state := rfl
+
+@[simp]
+theorem to_combined_configuration_tapes {k : Nat} {Q1 Q2 Γ : Type*}
+    [Inhabited Γ] [Coe Q1 Q2]
+    (conf : Configuration k Q1 Γ) :
+    (to_combined_configuration conf : Configuration k Q2 Γ).tapes = conf.tapes := rfl
+
+@[simp]
+theorem to_combined_configuration_state_first {k : Nat} {Q1 Q2 Γ : Type*}
+    [Inhabited Γ]
+    (conf : Configuration k Q1 Γ) :
+    (to_combined_configuration conf : Configuration k (CombinedState Q1 Q2) Γ).state
+    = CombinedState.first conf.state := rfl
+
+@[simp]
+theorem to_combined_configuration_state_second {k : Nat} {Q1 Q2 Γ : Type*}
+    [Inhabited Γ]
+    (conf : Configuration k Q2 Γ) :
+    (to_combined_configuration conf : Configuration k (CombinedState Q1 Q2) Γ).state
+    = CombinedState.second conf.state := rfl
+
+-- Behaviour of Transtition.step with `transition_seq`.
 
 -- Configuration transition in CombinedState.first matches σ₁ step, as long
 -- as the state is not the final state.
@@ -47,9 +112,9 @@ theorem behaviour_first_part {k : ℕ} {Q1 Q2 Γ : Type*}
     (σ₁ : Transition k Q1 Γ) (final : Q1) (start : Q2) (σ₂ : Transition k Q2 Γ)
     (conf : Configuration k Q1 Γ)
     (h_not_final : conf.state ≠ final) :
-    (do_after σ₁ final start σ₂).step (to_combined_configuration conf)
+    (transition_seq σ₁ final start σ₂).step (to_combined_configuration conf)
     = to_combined_configuration (σ₁.step conf) := by
-  simp [h_not_final, do_after, Transition.step, to_combined_configuration]
+  simp [h_not_final, transition_seq, Transition.step, to_combined_configuration]
   rfl
 
 -- A configuration in state `final` performs steps in the same way
@@ -60,9 +125,9 @@ theorem step_from_final {k : ℕ} {Q1 Q2 Γ : Type*}
     (conf₁ : Configuration k Q1 Γ)
     (h_final : conf₁.state = final) :
     let conf₂ : Configuration k Q2 Γ := { state := start, tapes := conf₁.tapes }
-    (do_after σ₁ final start σ₂).step (to_combined_configuration conf₁)
+    (transition_seq σ₁ final start σ₂).step (to_combined_configuration conf₁)
     = to_combined_configuration (σ₂.step conf₂) := by
-  simp [h_final, do_after, Transition.step, to_combined_configuration]
+  simp [h_final, transition_seq, Transition.step, to_combined_configuration]
   subst h_final
   rfl
 
@@ -71,7 +136,7 @@ theorem behaviour_second_part {k : ℕ} {Q1 Q2 Γ : Type*}
     [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
     (σ₁ : Transition k Q1 Γ) (final : Q1) (start : Q2) (σ₂ : Transition k Q2 Γ)
     (conf : Configuration k Q2 Γ) :
-    (do_after σ₁ final start σ₂).step (to_combined_configuration conf)
+    (transition_seq σ₁ final start σ₂).step (to_combined_configuration conf)
     = to_combined_configuration (σ₂.step conf) := by
   rfl
 
@@ -80,17 +145,18 @@ theorem behaviour_n_steps_first_part {k : ℕ} {Q1 Q2 Γ : Type*}
     (σ₁ : Transition k Q1 Γ) (final : Q1) (start : Q2) (σ₂ : Transition k Q2 Γ)
     (conf : Configuration k Q1 Γ) (n : Nat)
     (no_final : ∀ n' < n, (σ₁.step^[n'] conf).state ≠ final) :
-    (do_after σ₁ final start σ₂).step^[n] (to_combined_configuration conf)
+    (transition_seq σ₁ final start σ₂).step^[n] (to_combined_configuration conf)
     = to_combined_configuration (σ₁.step^[n] conf) := by
   induction n with
   | zero => rfl
   | succ n ih =>
     calc
-      (do_after σ₁ final start σ₂).step^[n + 1] (to_combined_configuration conf)
-        = (do_after σ₁ final start σ₂).step
-            ((do_after σ₁ final start σ₂).step^[n] (to_combined_configuration conf)) := by
+      (transition_seq σ₁ final start σ₂).step^[n + 1] (to_combined_configuration conf)
+        = (transition_seq σ₁ final start σ₂).step
+            ((transition_seq σ₁ final start σ₂).step^[n] (to_combined_configuration conf)) := by
         rw [Function.iterate_succ_apply']
-      _ = (do_after σ₁ final start σ₂).step (to_combined_configuration (σ₁.step^[n] conf)) := by
+      _ = (transition_seq σ₁ final start σ₂).step
+            (to_combined_configuration (σ₁.step^[n] conf)) := by
         rw [ih (by intro n' lt; exact no_final n' (Nat.lt_succ_of_lt lt))]
       _ = to_combined_configuration (σ₁.step (σ₁.step^[n] conf)) := by
         apply behaviour_first_part
@@ -104,13 +170,13 @@ theorem n_steps_from_final {k : ℕ} {Q1 Q2 Γ : Type*}
     (conf₁ : Configuration k Q1 Γ) (n : Nat)
     (h_final : conf₁.state = final) :
     let conf₂ : Configuration k Q2 Γ := { state := start, tapes := conf₁.tapes }
-    (do_after σ₁ final start σ₂).step^[n.succ] (to_combined_configuration conf₁)
+    (transition_seq σ₁ final start σ₂).step^[n.succ] (to_combined_configuration conf₁)
     = to_combined_configuration (σ₂.step^[n.succ] conf₂) := by
   induction n with
   | zero => simp [h_final, step_from_final]
   | succ n ih =>
      intro conf₂
-     let σ := do_after σ₁ final start σ₂
+     let σ := transition_seq σ₁ final start σ₂
      calc
       σ.step^[n.succ.succ] (to_combined_configuration conf₁)
         = σ.step (σ.step^[n.succ] (to_combined_configuration conf₁)) := by
@@ -126,7 +192,7 @@ theorem behaviour_n_steps_second_part {k : ℕ} {Q1 Q2 Γ : Type*}
     [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
     (σ₁ : Transition k Q1 Γ) (final : Q1) (start : Q2) (σ₂ : Transition k Q2 Γ)
     (conf : Configuration k Q2 Γ) (n : Nat) :
-    (do_after σ₁ final start σ₂).step^[n] (to_combined_configuration conf)
+    (transition_seq σ₁ final start σ₂).step^[n] (to_combined_configuration conf)
     = to_combined_configuration (σ₂.step^[n] conf) := by
   induction n with
   | zero => rfl
@@ -139,10 +205,10 @@ theorem behaviour_n_steps_crossing {k : ℕ} {Q1 Q2 Γ : Type*}
     (no_final : ∀ n' < n₁, (σ₁.step^[n'] conf).state ≠ final)
     (h_final : (σ₁.step^[n₁] conf).state = final) :
     let conf₂ : Configuration k Q2 Γ := { state := start, tapes := (σ₁.step^[n₁] conf).tapes }
-    (do_after σ₁ final start σ₂).step^[n₁ + n₂ + 1] (to_combined_configuration conf)
+    (transition_seq σ₁ final start σ₂).step^[n₁ + n₂ + 1] (to_combined_configuration conf)
     = to_combined_configuration (σ₂.step^[n₂ + 1] conf₂) := by
   intro conf₂
-  let σ := do_after σ₁ final start σ₂
+  let σ := transition_seq σ₁ final start σ₂
   have part₁ : σ.step^[n₁] (to_combined_configuration conf)
                       = to_combined_configuration (σ₁.step^[n₁] conf) := by
     apply behaviour_n_steps_first_part; exact no_final
@@ -160,7 +226,7 @@ theorem behaviour_n_steps {k : ℕ} {Q1 Q2 Γ : Type*}
   [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
   (σ₁ : Transition k Q1 Γ) (final : Q1) (start : Q2) (σ₂ : Transition k Q2 Γ)
   (conf : Configuration k Q1 Γ) (n : Nat) :
-  (do_after σ₁ final start σ₂).step^[n] (to_combined_configuration conf) =
+  (transition_seq σ₁ final start σ₂).step^[n] (to_combined_configuration conf) =
     if h : ∃ m < n, (σ₁.step^[m] conf).state = final then
       let m := Nat.find h
       let conf₂ : Configuration k Q2 Γ := { state := start, tapes := (σ₁.step^[m] conf).tapes }
@@ -192,3 +258,142 @@ theorem behaviour_n_steps {k : ℕ} {Q1 Q2 Γ : Type*}
       intro n' hn'
       exact fun hfin => h ⟨n', hn', hfin⟩
     simpa [h] using behaviour_n_steps_first_part σ₁ final start σ₂ conf n no_final
+
+theorem behaviour_n_steps_for_seq {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
+  (tm₁ : TM k Q1 Γ) (tm₂ : TM k Q2 Γ)
+  (tapes₀ : Fin k → Turing.Tape Γ)
+  (n : Nat) :
+  (TM.seq tm₁ tm₂).configurations tapes₀ n =
+    if h : ∃ m < n, (tm₁.configurations tapes₀ m).state = tm₁.stopState then
+      let m := Nat.find h
+      to_combined_configuration (tm₂.configurations (tm₁.configurations tapes₀ m).tapes (n - m))
+    else
+      to_combined_configuration (tm₁.configurations tapes₀ n) := by
+  unfold TM.seq
+  have h_beh := behaviour_n_steps tm₁.transition tm₁.stopState tm₂.startState tm₂.transition
+    (Configuration.mk tm₁.startState tapes₀) n
+  simp only [to_combined_configuration] at h_beh
+  exact h_beh
+
+lemma TM.seq.if_tm_halts_then_find {k : ℕ} {Q1 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1]
+  (tm₁ : TM k Q1 Γ)
+  (tapes₀ tapes₁ : Fin k → Turing.Tape Γ)
+  (t₁ t₂ : ℕ)
+  (h_first_transforms : tm₁.transforms_in_exact_time tapes₀ tapes₁ t₁)
+  (h : ∃ t' < t₂, (tm₁.configurations tapes₀ t').state = tm₁.stopState) :
+  Nat.find h = t₁ := by
+  have h_first_transforms_h : tm₁.transforms_in_exact_time
+      tapes₀ (tm₁.configurations tapes₀ (Nat.find h)).tapes (Nat.find h) := by
+    constructor
+    · ext
+      · rw [(Nat.find_spec h).2]
+      · rfl
+    · intro t' h_t'_lt h_stop
+      apply Nat.find_min h h_t'_lt
+      constructor
+      · exact Nat.lt_trans h_t'_lt (Nat.find_spec h).1
+      · exact h_stop
+  have h_unique := TM.transforms_in_exact_time_unique tm₁ tapes₀ tapes₁
+    (tm₁.configurations tapes₀ (Nat.find h)).tapes t₁ (Nat.find h)
+    h_first_transforms h_first_transforms_h
+  exact h_unique.1.symm
+
+lemma TM.trivial_of_transforms_in_zero_time {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k Q Γ)
+  (tapes₀ tapes₁ : Fin k → Turing.Tape Γ)
+  (h_transforms : tm.transforms_in_exact_time tapes₀ tapes₁ 0) :
+  tm.startState = tm.stopState := by
+  let h_stops := h_transforms.1
+  simp only [configurations_zero, Configuration.mk.injEq] at h_stops
+  exact h_stops.1
+
+lemma TM.seq.halts {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
+  (tm₁ : TM k Q1 Γ) (tm₂ : TM k Q2 Γ)
+  (tapes₀ tapes₁ tapes₂ : Fin k → Turing.Tape Γ)
+  (t₁ t₂ : ℕ)
+  (h_first_transforms : tm₁.transforms_in_exact_time tapes₀ tapes₁ t₁)
+  (h_second_transforms : tm₂.transforms_in_exact_time tapes₁ tapes₂ t₂) :
+  (tm₁.seq tm₂).configurations tapes₀ (t₁ + t₂) = ⟨(tm₁.seq tm₂).stopState, tapes₂⟩ := by
+  rw [behaviour_n_steps_for_seq]
+  by_cases h : ∃ m < t₁ + t₂, (tm₁.configurations tapes₀ m).state = tm₁.stopState
+  · have h_t₁_eq_find : Nat.find h = t₁ :=
+      TM.seq.if_tm_halts_then_find tm₁ tapes₀ tapes₁ t₁ (t₁ + t₂)  h_first_transforms h
+    simp only [h, reduceDIte, h_t₁_eq_find, add_tsub_cancel_left]
+    have h_t₂_nonzero : 0 < t₂ := by by_contra h_zero; linarith [Nat.find_spec h]
+    have h_nontrivial : tm₂.startState ≠ tm₂.stopState := h_second_transforms.2 0 h_t₂_nonzero
+    simp_all [h_first_transforms.1, h_second_transforms.1, to_combined_configuration, Coe.coe]
+  · simp only [h, ↓reduceDIte]
+    have h_t₂_eq_zero : t₂ = 0 := by
+      by_contra h_t₂_nonzero
+      push_neg at h
+      specialize h t₁ (by omega)
+      apply h
+      simp only [h_first_transforms.1]
+    rw [h_t₂_eq_zero] at h_second_transforms
+    have h_t₂_trivial : tm₂.startState = tm₂.stopState :=
+      TM.trivial_of_transforms_in_zero_time tm₂ tapes₁ tapes₂ h_second_transforms
+    simp only [h_t₂_eq_zero, add_zero]
+    simp_all only [add_zero, not_exists, not_and, h_first_transforms.1, seq_stopState_trivial]
+    unfold TM.transforms_in_exact_time at h_second_transforms
+    ext
+    · simp
+    · let h_second_trans := h_second_transforms.1
+      simp only [configurations_zero, Configuration.mk.injEq] at h_second_trans
+      simp [h_second_trans]
+
+lemma TM.seq.does_not_halt_yet {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
+  (tm₁ : TM k Q1 Γ) (tm₂ : TM k Q2 Γ)
+  (tapes₀ tapes₁ tapes₂ : Fin k → Turing.Tape Γ)
+  (t₁ t₂ : ℕ)
+  (h_first_transforms : tm₁.transforms_in_exact_time tapes₀ tapes₁ t₁)
+  (h_second_transforms : tm₂.transforms_in_exact_time tapes₁ tapes₂ t₂) :
+  ∀ t' < t₁ + t₂,
+  ((tm₁.seq tm₂).configurations tapes₀ t').state ≠ (tm₁.seq tm₂).stopState := by
+  intro t' h_lt
+  rw [behaviour_n_steps_for_seq]
+  by_cases h : ∃ m < t', (tm₁.configurations tapes₀ m).state = tm₁.stopState
+  · have h_t₁_eq_find : Nat.find h = t₁ :=
+      TM.seq.if_tm_halts_then_find tm₁ tapes₀ tapes₁ t₁ t'  h_first_transforms h
+    simp only [h_t₁_eq_find]
+    have h_t₂_nonzero : 0 < t₂ := by by_contra h_zero; linarith [Nat.find_spec h]
+    have h_nontrivial : tm₂.startState ≠ tm₂.stopState := h_second_transforms.2 0 h_t₂_nonzero
+    unfold TM.transforms_in_exact_time at h_second_transforms
+    simpa [h, h_first_transforms.1, h_nontrivial] using h_second_transforms.2 (t' - t₁) (by omega)
+  · simp only [h, ↓reduceDIte]
+    unfold TM.transforms_in_exact_time at h_first_transforms
+    simp_all only [not_exists, not_and, h_first_transforms.1]
+    by_cases h_t₂_eq_zero : t₂ = 0
+    · rw [h_t₂_eq_zero] at h_second_transforms
+      have h_trivial : tm₂.startState = tm₂.stopState :=
+        TM.trivial_of_transforms_in_zero_time tm₂ tapes₁ tapes₂ h_second_transforms
+      rw [TM.seq_stopState_trivial tm₁ tm₂ h_trivial]
+      rw [h_t₂_eq_zero] at h_lt
+      simpa using h_first_transforms.2 t' h_lt
+    · have h_nontrivial : tm₂.startState ≠ tm₂.stopState := h_second_transforms.2 0 (by omega)
+      rw [TM.seq_stopState_nontrivial tm₁ tm₂ h_nontrivial]
+      simp only [to_combined_configuration_state_first]
+      intro h_states_eq
+      injection h_states_eq
+
+--- Semantics of sequential composition of Turing Machines.
+theorem TM.seq.semantics {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
+  (tm₁ : TM k Q1 Γ) (tm₂ : TM k Q2 Γ)
+  (tapes₀ tapes₁ tapes₂ : Fin k → Turing.Tape Γ)
+  (h_first : tm₁.transforms tapes₀ tapes₁)
+  (h_second : tm₂.transforms tapes₁ tapes₂) :
+  (TM.seq tm₁ tm₂).transforms tapes₀ tapes₂ := by
+  obtain ⟨t₁, h_first_transforms⟩ := h_first
+  obtain ⟨t₂, h_second_transforms⟩ := h_second
+  unfold TM.transforms TM.transforms_in_exact_time
+  use t₁ + t₂
+  constructor
+  · exact TM.seq.halts
+      tm₁ tm₂ tapes₀ tapes₁ tapes₂ t₁ t₂ h_first_transforms h_second_transforms
+  · exact TM.seq.does_not_halt_yet
+      tm₁ tm₂ tapes₀ tapes₁ tapes₂ t₁ t₂ h_first_transforms h_second_transforms
