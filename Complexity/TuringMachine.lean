@@ -63,11 +63,156 @@ def Transition.step {k : Nat} {S} {Γ} [Inhabited Γ]
     tapes := fun i => performTapeOps (conf.tapes i) (tapeOps i).1 (tapeOps i).2
   }
 
+--- The TM does not change its configuration after reaching the stop state.
+def TM.inert_after_stop {k : ℕ} {Q Γ : Type*} [Inhabited Γ] (tm : TM k Q Γ) : Prop :=
+  ∀ conf, conf.state = tm.stopState → tm.transition.step conf = conf
+
+--- Sequence of configurations on a certain input.
+def TM.configurations {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k Q Γ) (tapes : Fin k → Turing.Tape Γ) :=
+  fun t => tm.transition.step^[t] (Configuration.mk tm.startState tapes)
+
+@[simp]
+lemma TM.configurations_zero {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k Q Γ) (tapes : Fin k → Turing.Tape Γ) :
+  tm.configurations tapes 0 = Configuration.mk tm.startState tapes := by
+  rfl
+
+--- Defines how a Turing Machine transforms initial tapes into final tapes
+--- (if it stops).
+def TM.transforms_in_exact_time {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k Q Γ) (tapes₀ tapes₁ : Fin k → Turing.Tape Γ) (t : ℕ) :=
+  tm.configurations tapes₀ t = ⟨tm.stopState, tapes₁⟩ ∧
+    ∀ t' < t, (tm.configurations tapes₀ t').state ≠ tm.stopState
+
+lemma TM.transforms_in_exact_time_of_find {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (tm : TM k Q Γ)
+  (tapes₀ : Fin k → Turing.Tape Γ)
+  (h_stops : ∃ t, (tm.configurations tapes₀ t).state = tm.stopState) :
+  tm.transforms_in_exact_time
+    tapes₀
+    (tm.configurations tapes₀ (Nat.find h_stops)).tapes
+    (Nat.find h_stops) := by
+  constructor
+  · ext
+    · rw [Nat.find_spec h_stops]
+    · rfl
+  · intro t' h_t'_lt
+    simpa using (Nat.find_min h_stops h_t'_lt)
+
+lemma TM.transforms_in_exact_time_unique {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k Q Γ)
+  (tapes₀ tapes₁ tapes₂ : Fin k → Turing.Tape Γ)
+  (t₁ t₂ : ℕ)
+  (h_transforms₁ : tm.transforms_in_exact_time tapes₀ tapes₁ t₁)
+  (h_transforms₂ : tm.transforms_in_exact_time tapes₀ tapes₂ t₂) :
+  t₁ = t₂ ∧ tapes₁ = tapes₂ := by
+  -- First prove that t₁ = t₂
+  have h_t_eq : t₁ = t₂ := by
+    by_contra h_neq
+    wlog h_lt : t₁ < t₂
+    · have h_gt : t₂ < t₁ := Nat.lt_of_le_of_ne (Nat.le_of_not_lt h_lt) (Ne.symm h_neq)
+      exact this tm tapes₀ tapes₂ tapes₁ t₂ t₁ h_transforms₂ h_transforms₁ (Ne.symm h_neq) h_gt
+    -- t₁ < t₂: tm₁ says it stops at t₁, but tm₂ says it doesn't stop before t₂
+    have h_eq_at_t₁ : (tm.configurations tapes₀ t₁).state = tm.stopState := by
+      rw [h_transforms₁.1]
+    have h_contradiction : (tm.configurations tapes₀ t₁).state ≠ tm.stopState := by
+      apply h_transforms₂.2 t₁ h_lt
+    contradiction
+  -- Now use t₁ = t₂ to prove tapes₁ = tapes₂
+  constructor
+  · exact h_t_eq
+  · subst h_t_eq
+    calc tapes₁
+      _ = (Configuration.mk tm.stopState tapes₁).tapes := rfl
+      _ = (tm.configurations tapes₀ t₁).tapes := by rw [← h_transforms₁.1]
+      _ = (Configuration.mk tm.stopState tapes₂).tapes := by rw [h_transforms₂.1]
+      _ = tapes₂ := rfl
+
+lemma TM.transforms_t_eq_find {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (tm : TM k Q Γ)
+  (tapes₀ tapes₁ : Fin k → Turing.Tape Γ)
+  (t : ℕ)
+  (h_transforms : tm.transforms_in_exact_time tapes₀ tapes₁ t) :
+    let h_stops : ∃ t', (tm.configurations tapes₀ t').state = tm.stopState := by
+      use t; simp [h_transforms.1]
+  Nat.find h_stops = t := by
+  intro h_stops
+  have h_unique := TM.transforms_in_exact_time_unique tm tapes₀ tapes₁
+    (tm.configurations tapes₀ (Nat.find h_stops)).tapes t (Nat.find h_stops)
+    h_transforms (TM.transforms_in_exact_time_of_find tm tapes₀ h_stops)
+  exact h_unique.1.symm
+
+def TM.transforms {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k Q Γ) (tapes₀ tapes₁ : Fin k → Turing.Tape Γ) :=
+  ∃ t, tm.transforms_in_exact_time tapes₀ tapes₁ t
+
+lemma TM.transforms_unique {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k Q Γ)
+  (tapes₀ tapes₁ tapes₂ : Fin k → Turing.Tape Γ)
+  (h_transforms₁ : tm.transforms tapes₀ tapes₁)
+  (h_transforms₂ : tm.transforms tapes₀ tapes₂) :
+  tapes₁ = tapes₂ := by
+  obtain ⟨t₁, h_exact₁⟩ := h_transforms₁
+  obtain ⟨t₂, h_exact₂⟩ := h_transforms₂
+  exact (TM.transforms_in_exact_time_unique tm tapes₀ tapes₁ tapes₂ t₁ t₂ h_exact₁ h_exact₂).2
+
+lemma TM.stops_of_transforms {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k Q Γ)
+  {tapes₀ tapes₁ : Fin k → Turing.Tape Γ}
+  (h_transforms : tm.transforms tapes₀ tapes₁) :
+  ∃ t, (tm.configurations tapes₀ t).state = tm.stopState := by
+  obtain ⟨t, h_exact⟩ := h_transforms
+  use t
+  rw [h_exact.1]
+
+lemma TM.transforms_of_inert {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k Q Γ)
+  (tapes₀ : Fin k → Turing.Tape Γ)
+  (t : ℕ)
+  (h_inert_after_stop : tm.inert_after_stop)
+  (h_stops : (tm.configurations tapes₀ t).state = tm.stopState) :
+  tm.transforms tapes₀ (tm.configurations tapes₀ t).tapes := by
+  classical
+  have h_exists : ∃ t', (tm.configurations tapes₀ t').state = tm.stopState := ⟨t, h_stops⟩
+  let t₀ := Nat.find h_exists
+  use t₀
+  suffices h : (tm.configurations tapes₀ t₀).tapes = (tm.configurations tapes₀ t).tapes from
+    h ▸ TM.transforms_in_exact_time_of_find tm tapes₀ h_exists
+  rcases Nat.lt_trichotomy t₀ t with h_lt | rfl | h_gt
+  · -- t₀ < t
+    have h_unchanged : ∀ Δt, tm.configurations tapes₀ (t₀ + Δt) = tm.configurations tapes₀ t₀ := by
+      intro Δt
+      induction Δt with
+      | zero => simp
+      | succ Δt ih =>
+        simp only [TM.configurations, Nat.add_succ, Function.iterate_succ_apply']
+        let conf₀ : Configuration k Q Γ := { state := tm.startState, tapes := tapes₀ }
+        calc tm.transition.step (tm.transition.step^[t₀ + Δt] conf₀)
+          _ = tm.transition.step^[t₀ + Δt] conf₀ :=
+                h_inert_after_stop _ (congrArg (·.state) ih ▸ (Nat.find_spec h_exists))
+          _ = tm.transition.step^[t₀] conf₀ := ih
+    calc (tm.configurations tapes₀ (t₀)).tapes
+      _ = (tm.configurations tapes₀ (t₀ + (t - t₀))).tapes :=
+          congrArg (·.tapes) (h_unchanged (t - t₀)).symm
+      _ = (tm.configurations tapes₀ t).tapes := by rw [Nat.add_sub_cancel' (Nat.le_of_lt h_lt)]
+  · rfl
+  · exact absurd h_stops (Nat.find_min h_exists h_gt)
+
+
 def TM.initial_configuration {k : Nat} {S} {Γ}
   (tm : TM k S (Option Γ)) (input : List Γ) : Configuration k S (Option Γ) :=
   let firstTape := Turing.Tape.mk₁ (input.map some)
   { state := tm.startState, tapes := fun i => if i.val = 0 then firstTape else default }
-
 
 @[simp]
 lemma TM.initial_configuration_first_tape {k : Nat} {S} {Γ}
