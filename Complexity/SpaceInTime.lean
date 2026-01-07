@@ -89,7 +89,7 @@ lemma apply_write_operations_all_different {Γ} [Inhabited Γ]
     simp only [List.mem_cons, forall_eq_or_imp] at h_different
     rw [ih (tape.apply_write_operation op) h_different.2]
     unfold Turing.Tape.apply_write_operation
-    simp [Turing.Tape.write_at_nth, h_different]
+    simp [Turing.Tape.write_at_tape_nth, h_different]
 
 def write_operations_up_to {k : ℕ} {S} {Γ} [Inhabited Γ]
   (σ : Transition k S Γ) (conf : Configuration k S Γ) (i : Fin k) (n : ℕ) :
