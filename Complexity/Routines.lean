@@ -2,6 +2,7 @@ import Mathlib
 
 import Complexity.TuringMachine
 import Complexity.TapeLemmas
+import Complexity.TMComposition
 
 --- Routines are Turing Machines that can be composed to build more complex
 --- algorithms. They fulfill the following invariants:
@@ -117,13 +118,22 @@ def lists_to_configuration {k : ℕ} {Q : Type*} (lists : Fin k → List (List C
     tapes := fun i => list_to_tape (lists i)
   }
 
-def TM.transforms {k : ℕ} {Q : Type*}
+def TM.transforms_list {k : ℕ} {Q : Type*}
   (tm : TM k Q SChar)
   (initial : Fin k → (List (List Char)))
   (final : Fin k → (List (List Char))) : Prop :=
-  let configs := fun t => tm.transition.step^[t] (lists_to_configuration initial tm.startState)
-  ∃ t, configs t = lists_to_configuration final tm.stopState ∧
-    ∀ t' < t, (configs t').state ≠ tm.stopState
+  tm.transforms (fun i => list_to_tape (initial i)) (fun i => list_to_tape (final i))
+
+lemma TM.transforms_list_seq {k : ℕ} {Q1 Q2 : Type*}
+  [DecidableEq Q1] [DecidableEq Q2]
+  (tm₁ : TM k Q1 SChar) (tm₂ : TM k Q2 SChar)
+  (tapes₀ tapes₁ tapes₂ : Fin k → (List (List Char)))
+  (h_first : tm₁.transforms_list tapes₀ tapes₁)
+  (h_second : tm₂.transforms_list tapes₁ tapes₂) :
+  (TM.seq tm₁ tm₂).transforms_list tapes₀ tapes₂ :=
+  TM.seq.semantics _ _ _ _ _ h_first h_second
+
+-- TODO use the new transforms lemmas (find etc)
 
 lemma transforms_of_inert {k : ℕ} {Q : Type*}
   (tm : TM k Q SChar)
@@ -132,7 +142,7 @@ lemma transforms_of_inert {k : ℕ} {Q : Type*}
   (h_inert_after_stop : ∀ conf, conf.state = tm.stopState → tm.transition.step conf = conf)
   (h_stops_with_final : ∃ t, tm.transition.step^[t] (lists_to_configuration initial tm.startState) =
     lists_to_configuration final tm.stopState) :
-  tm.transforms initial final := by
+  tm.transforms_list initial final := by
   classical
   let conf₀ := (lists_to_configuration initial tm.startState)
   obtain ⟨t', h_stops_with_final⟩ := h_stops_with_final
@@ -184,7 +194,7 @@ lemma cons_empty_two_steps (ws : List (List Char)) :
                       Transition.step, list_to_string_cons]
 
 theorem cons_empty_semantics (ws : List (List Char)) :
-  cons_empty.transforms (fun _ => ws) (fun _ => [] :: ws) := by
+  cons_empty.transforms_list (fun _ => ws) (fun _ => [] :: ws) := by
   exact transforms_of_inert cons_empty _ _
     cons_empty_inert_after_stop
     ⟨2, cons_empty_two_steps ws⟩
@@ -213,10 +223,26 @@ lemma cons_char_two_steps (c : Char) (w : List Char) (ws : List (List Char)) :
   cases w <;> simp [lists_to_configuration, list_to_tape_cons, cons_char, Transition.step]
 
 theorem cons_char_semantics (c : Char) (w : List Char) (ws : List (List Char)) :
-  (cons_char c).transforms (fun _ => w :: ws) (fun _ => ((c :: w) :: ws)) := by
+  (cons_char c).transforms_list (fun _ => w :: ws) (fun _ => ((c :: w) :: ws)) := by
   exact transforms_of_inert (cons_char c) _ _
     (cons_char_inert_after_stop c)
     ⟨2, cons_char_two_steps c w ws⟩
 
+def ConsWordStates (w : List Char) : Type := match w with
+  | List.nil => Fin 3
+  | _ :: w => CombinedState (ConsWordStates w) (Fin 3)
+
+instance (w : List Char) : DecidableEq (ConsWordStates w) :=
+  sorry
+
+def cons_word (w : List Char) : TM 1 (ConsWordStates w) SChar := match w with
+  | List.nil => cons_empty
+  | c :: w => (cons_word w).seq (cons_char c)
+
+theorem cons_word_semantics (w : List Char) (ws : List (List Char)) :
+  (cons_word w).transforms_list (fun _ => ws) (fun _ => (w :: ws)) := by
+  induction w with
+  | nil => simpa [cons_word] using (cons_empty_semantics ws)
+  | cons c w ih => exact TM.transforms_list_seq _ _ _ _ _ ih (cons_char_semantics c w ws)
 
 end Routines
