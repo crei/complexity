@@ -177,17 +177,18 @@ lemma TM.stops_of_transforms {k : ℕ} {Q Γ : Type*}
 lemma TM.transforms_of_inert {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ]
   (tm : TM k Q Γ)
-  (tapes₀ : Fin k → Turing.Tape Γ)
-  (t : ℕ)
+  (tapes₀ tapes₁ : Fin k → Turing.Tape Γ)
   (h_inert_after_stop : tm.inert_after_stop)
-  (h_stops : (tm.configurations tapes₀ t).state = tm.stopState) :
-  tm.transforms tapes₀ (tm.configurations tapes₀ t).tapes := by
+  (h_stops_with_tapes₁ : ∃ t, tm.configurations tapes₀ t = ⟨tm.stopState, tapes₁⟩) :
+  tm.transforms tapes₀ tapes₁ := by
   classical
-  have h_exists : ∃ t', (tm.configurations tapes₀ t').state = tm.stopState := ⟨t, h_stops⟩
-  let t₀ := Nat.find h_exists
+  obtain ⟨t, h_stops_with_tapes₁⟩ := h_stops_with_tapes₁
+  have h_stops : ∃ t', (tm.configurations tapes₀ t').state = tm.stopState := by
+    use t; rw [h_stops_with_tapes₁]
+  let t₀ := Nat.find h_stops
   use t₀
-  suffices h : (tm.configurations tapes₀ t₀).tapes = (tm.configurations tapes₀ t).tapes from
-    h ▸ TM.transforms_in_exact_time_of_find tm tapes₀ h_exists
+  suffices h : (tm.configurations tapes₀ t₀).tapes = tapes₁ from
+    h ▸ TM.transforms_in_exact_time_of_find tm tapes₀ h_stops
   rcases Nat.lt_trichotomy t₀ t with h_lt | rfl | h_gt
   · -- t₀ < t
     have h_unchanged : ∀ Δt, tm.configurations tapes₀ (t₀ + Δt) = tm.configurations tapes₀ t₀ := by
@@ -199,14 +200,17 @@ lemma TM.transforms_of_inert {k : ℕ} {Q Γ : Type*}
         let conf₀ : Configuration k Q Γ := { state := tm.startState, tapes := tapes₀ }
         calc tm.transition.step (tm.transition.step^[t₀ + Δt] conf₀)
           _ = tm.transition.step^[t₀ + Δt] conf₀ :=
-                h_inert_after_stop _ (congrArg (·.state) ih ▸ (Nat.find_spec h_exists))
+                h_inert_after_stop _ (congrArg (·.state) ih ▸ (Nat.find_spec h_stops))
           _ = tm.transition.step^[t₀] conf₀ := ih
     calc (tm.configurations tapes₀ (t₀)).tapes
       _ = (tm.configurations tapes₀ (t₀ + (t - t₀))).tapes :=
           congrArg (·.tapes) (h_unchanged (t - t₀)).symm
       _ = (tm.configurations tapes₀ t).tapes := by rw [Nat.add_sub_cancel' (Nat.le_of_lt h_lt)]
-  · rfl
-  · exact absurd h_stops (Nat.find_min h_exists h_gt)
+      _ = tapes₁ := by rw [h_stops_with_tapes₁]
+  · rw [h_stops_with_tapes₁]
+  · have h_stops_at_t : (tm.configurations tapes₀ t).state = tm.stopState := by
+      rw [h_stops_with_tapes₁]
+    exact absurd (h_stops_at_t) (Nat.find_min h_stops h_gt)
 
 
 def TM.initial_configuration {k : Nat} {S} {Γ}

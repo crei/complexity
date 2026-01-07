@@ -380,6 +380,33 @@ lemma TM.seq.does_not_halt_yet {k : ℕ} {Q1 Q2 Γ : Type*}
       intro h_states_eq
       injection h_states_eq
 
+lemma TM.seq.inert_after_stop_of_inert_after_stop {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
+  (tm₁ : TM k Q1 Γ) (tm₂ : TM k Q2 Γ)
+  (h_nontrivial : tm₂.startState ≠ tm₂.stopState)
+  (h_inert_after_stop₂ : tm₂.inert_after_stop) :
+  (tm₁.seq tm₂).inert_after_stop := by
+  intro conf h_stop
+  unfold TM.seq at h_stop ⊢
+  simp only [h_nontrivial, ↓reduceIte] at h_stop ⊢
+  cases h : conf.state with
+  | first q1 =>
+    rw [h] at h_stop
+    cases h_stop
+  | second q2 =>
+    rw [h] at h_stop
+    injection h_stop with h_q2_stop
+    subst h_q2_stop
+    let conf₂ : Configuration k Q2 Γ := Configuration.mk tm₂.stopState conf.tapes
+    have h_combined: conf = to_combined_configuration conf₂ := by
+      simp [to_combined_configuration, conf₂, Coe.coe, ←h]
+    let σ := transition_seq tm₁.transition tm₁.stopState tm₂.startState tm₂.transition
+    calc σ.step conf
+        = σ.step (to_combined_configuration conf₂) := by rw [h_combined]
+      _ = to_combined_configuration (tm₂.transition.step conf₂) := by apply behaviour_second_part
+      _ = to_combined_configuration conf₂ := by rw [h_inert_after_stop₂ conf₂ rfl]
+      _ = conf := h_combined.symm
+
 --- Semantics of sequential composition of Turing Machines.
 theorem TM.seq.semantics {k : ℕ} {Q1 Q2 Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]

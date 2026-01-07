@@ -117,7 +117,7 @@ def lists_to_configuration {k : ℕ} {Q : Type*} (lists : Fin k → List (List C
     tapes := fun i => list_to_tape (lists i)
   }
 
-def TM.transforms {k : ℕ} {Q : Type*}
+def TM.transforms_list {k : ℕ} {Q : Type*}
   (tm : TM k Q SChar)
   (initial : Fin k → (List (List Char)))
   (final : Fin k → (List (List Char))) : Prop :=
@@ -129,31 +129,12 @@ lemma transforms_of_inert {k : ℕ} {Q : Type*}
   (tm : TM k Q SChar)
   (initial : Fin k → (List (List Char)))
   (final : Fin k → (List (List Char)))
-  (h_inert_after_stop : ∀ conf, conf.state = tm.stopState → tm.transition.step conf = conf)
-  (h_stops_with_final : ∃ t, tm.transition.step^[t] (lists_to_configuration initial tm.startState) =
+  (h_inert_after_stop : tm.inert_after_stop)
+  (h_stops_with_final : ∃ t, tm.configurations (list_to_tape ∘ initial) t =
     lists_to_configuration final tm.stopState) :
-  tm.transforms initial final := by
-  classical
-  let conf₀ := (lists_to_configuration initial tm.startState)
-  obtain ⟨t', h_stops_with_final⟩ := h_stops_with_final
-  have h_stops_at_t' : (tm.transition.step^[t'] conf₀).state = tm.stopState := by
-    rw [h_stops_with_final]
-    dsimp [lists_to_configuration]
-  have h_stops : ∃ t, (tm.transition.step^[t] conf₀).state = tm.stopState := ⟨t', h_stops_at_t'⟩
-  let t := Nat.find h_stops
-  let h_spec := Nat.find_spec h_stops
-  let h_min := fun t => Nat.find_min (m := t) h_stops
-  use t
-  have h_t_le : t ≤ t' := by
-    by_contra
-    exact h_min t' (by omega) h_stops_at_t'
-  constructor
-  · calc (fun t => tm.transition.step^[t] conf₀) t
-      _ = tm.transition.step^[t] conf₀ := by rfl
-      _ = tm.transition.step^[t'] conf₀ :=
-          inert_perpetually tm h_inert_after_stop conf₀ t t' h_stops_at_t' h_spec
-      _ = lists_to_configuration final tm.stopState := h_stops_with_final
-  · exact h_min
+  tm.transforms_list initial final :=
+  TM.transforms_of_inert tm (list_to_tape ∘ initial) (list_to_tape ∘ final)
+    h_inert_after_stop h_stops_with_final
 
 --- Prepend a new empty word to the first tape.
 def cons_empty :
@@ -184,7 +165,7 @@ lemma cons_empty_two_steps (ws : List (List Char)) :
                       Transition.step, list_to_string_cons]
 
 theorem cons_empty_semantics (ws : List (List Char)) :
-  cons_empty.transforms (fun _ => ws) (fun _ => [] :: ws) := by
+  cons_empty.transforms_list (fun _ => ws) (fun _ => [] :: ws) := by
   exact transforms_of_inert cons_empty _ _
     cons_empty_inert_after_stop
     ⟨2, cons_empty_two_steps ws⟩
@@ -213,7 +194,7 @@ lemma cons_char_two_steps (c : Char) (w : List Char) (ws : List (List Char)) :
   cases w <;> simp [lists_to_configuration, list_to_tape_cons, cons_char, Transition.step]
 
 theorem cons_char_semantics (c : Char) (w : List Char) (ws : List (List Char)) :
-  (cons_char c).transforms (fun _ => w :: ws) (fun _ => ((c :: w) :: ws)) := by
+  (cons_char c).transforms_list (fun _ => w :: ws) (fun _ => ((c :: w) :: ws)) := by
   exact transforms_of_inert (cons_char c) _ _
     (cons_char_inert_after_stop c)
     ⟨2, cons_char_two_steps c w ws⟩
