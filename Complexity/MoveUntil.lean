@@ -10,7 +10,7 @@ def Routines.move {Γ} [Inhabited Γ]
   TM 1 (Fin 2) Γ :=
   let σ := fun state symbols =>
     match state with
-    | 0 => (0, (symbols ·, some dir))
+    | 0 => (1, (symbols ·, some dir))
     | 1 => (1, (symbols ·, none))
   TM.mk σ 0 1
 
@@ -25,8 +25,9 @@ lemma Routines.move.semantics {Γ} [Inhabited Γ] [DecidableEq Γ]
   (dir : Turing.Dir) :
   (Routines.move dir).transforms (fun _ => tape) (fun _ => Turing.Tape.move dir tape) := by
   let tm := Routines.move (Γ := Γ) dir
-  refine TM.transforms_of_inert tm _ _ (move.inert_after_stop dir) ?_
-  sorry
+  exact TM.transforms_of_inert tm _ _ (move.inert_after_stop dir) ⟨1, rfl⟩
+
+-- TODO actually "move_until" can be implemented as a "while" loop...
 
 --- Returns a 1-tape Turing machine that moves its head
 --- in a certain direction until a condition is met.
@@ -86,10 +87,8 @@ theorem move_until.semantics {Γ} [Inhabited Γ] [DecidableEq Γ]
       h_is_stop, ↓reduceIte, perform_no_move, Configuration.mk.injEq, tm]
     rw [move_right_iter_eq_move_int, write_eq_write_at, move_int_write_at]
     simp
-  have h_stops : (tm.configurations (fun _ => tape) (n + 1)).state = tm.stopState := by
-    rw [h_conf_n]; rfl
   have h_tapes : (tm.configurations (fun _ => tape) (n + 1)).tapes =
       fun _ => tape.move_int (Nat.find h_stop) := by
     rw [h_conf_n]; rfl
-  simpa [h_tapes] using TM.transforms_of_inert tm _ (n + 1)
-    (move_until.inert_after_stop dir stop_condition) h_stops
+  simpa [h_tapes] using TM.transforms_of_inert tm _ _
+    (move_right_until.inert_after_stop stop_condition) ⟨n + 1, h_conf_n⟩
