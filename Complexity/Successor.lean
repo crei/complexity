@@ -18,9 +18,10 @@ def List.coe_schar (x : List Char) : List SChar :=
 lemma List.coe_schar_length (x : List Char) :
   x.coe_schar.length = x.length := by simp [List.coe_schar]
 
-example : dya 2 = ['2'] := by
-  simp [dya, dyadic_encoding]
-
+--- The "core" part of the successor function:
+--- If the head is on the separator, increments the dyadic number
+--- left of it and stops as soon as it is done, i.e. does not
+--- move to the left end of the word.
 def successor_core : TM 1 (Fin 2) SChar :=
   let σ := fun state symbols =>
     match state with
@@ -132,25 +133,24 @@ lemma successor_core.transforms_tape (n : Nat) (ws : List SChar) :
 lemma successor_core.semantics (n : Nat) (ws : List SChar) :
   ∃ shift < (dya n.succ).length,
   successor_core.transforms
-    (fun _ => Turing.Tape.mk₂ ↑(dya n).reverse (.sep :: ws))
+    (fun _ => Turing.Tape.move .left (Turing.Tape.mk₂ (dya n).coe_schar.reverse ws))
     (fun _ => (Turing.Tape.move .right)^[shift]
-         (Turing.Tape.mk₁ (↑(dya n.succ) ++ (.sep :: ws)))) := by
-  apply TM.transforms_of_inert successor_core _ _
-      successor_core.inert_after_stop (successor_core.transforms_tape n ws)
-  sorry
-
-
-lemma successor_core.semantics (n : Nat) (ws : List SChar) :
-  successor_core.transforms
-    (fun _ => Turing.Tape.mk₂ ↑(dya n).reverse (.sep :: ws))
-    (fun _ => Turing.Tape.mk₂ ↑(dya n.succ).reverse (.sep :: ws)) := by
-  sorry
+         (Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ ws))) := by
+  obtain ⟨shift, h_shift, t, h_transforms⟩ := successor_core.transforms_tape n ws
+  use shift, h_shift
+  exact TM.transforms_of_inert successor_core _ _
+    successor_core.inert_after_stop ⟨t, h_transforms⟩
 
 def is_separator : SChar -> Bool
   | .sep => true
   | _ => false
 
-def successor := (move_right_until is_separator).seq successor_core
+def is_blank : SChar -> Bool
+  | .blank => true
+  | _ => false
+
+def successor := ((((move_right_until is_separator).seq
+  (Routine.move .left)) successor_core).seq (move_until .left is_blank)).seq (Routine.move .right)
 
 theorem successor.semantics (n : Nat) (ws : List (List Char)) :
   successor.transforms_list
