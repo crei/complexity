@@ -72,8 +72,12 @@ theorem move_until.semantics {Γ} [Inhabited Γ] [DecidableEq Γ]
     induction t with
     | zero => rfl
     | succ t ih =>
-      have h_not_stop : ¬ stop_condition (tape_nth t) := by
-        simpa [Turing.Tape.right₀_nth] using Nat.find_min h_stop (m := t) (by omega)
+      have h_not_stop : ¬ stop_condition ((Turing.Tape.move dir)^[t] tape).head :=
+        match dir with
+        | .right => by
+          simpa [Turing.Tape.right₀_nth] using Nat.find_min h_stop (m := t) (by omega)
+        | .left => by
+          simpa [Tape.left₀_nth] using Nat.find_min h_stop (m := t) (by omega)
       unfold TM.configurations at ih
       simp only [Function.iterate_succ_apply']
       rw [ih (by omega)]
