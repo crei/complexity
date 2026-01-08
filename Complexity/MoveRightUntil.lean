@@ -54,10 +54,8 @@ theorem move_right_until.semantics {Γ} [Inhabited Γ] [DecidableEq Γ]
       h_is_stop, ↓reduceIte, perform_no_move, Configuration.mk.injEq, tm]
     rw [move_right_iter_eq_move_int, write_eq_write_at, move_int_write_at]
     simp
-  have h_stops : (tm.configurations (fun _ => tape) (n + 1)).state = tm.stopState := by
-    rw [h_conf_n]; rfl
   have h_tapes : (tm.configurations (fun _ => tape) (n + 1)).tapes =
       fun _ => tape.move_int (Nat.find h_stop) := by
     rw [h_conf_n]; rfl
-  simpa [h_tapes] using TM.transforms_of_inert tm _ (n + 1)
-    (move_right_until.inert_after_stop stop_condition) h_stops
+  simpa [h_tapes] using TM.transforms_of_inert tm _ _
+    (move_right_until.inert_after_stop stop_condition) ⟨n + 1, h_conf_n⟩
