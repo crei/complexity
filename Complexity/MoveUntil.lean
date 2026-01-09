@@ -72,27 +72,38 @@ theorem move_until.semantics {Γ} [Inhabited Γ] [DecidableEq Γ]
     induction t with
     | zero => rfl
     | succ t ih =>
-      have h_not_stop : ¬ stop_condition ((Turing.Tape.move dir)^[t] tape).head :=
+      have h_not_stop : ¬ stop_condition ((Turing.Tape.move dir)^[t] tape).head := by
+        have h_t_lt_n : t < n := by omega
+        have := Nat.find_min h_stop h_t_lt_n
         match dir with
-        | .right => by
-          simpa [Turing.Tape.right₀_nth] using Nat.find_min h_stop (m := t) (by omega)
-        | .left => by
-          simpa [Tape.left₀_nth] using Nat.find_min h_stop (m := t) (by omega)
+        | .right => simpa [tape_nth, Turing.Tape.right₀_nth] using this
+        | .left => simpa [tape_nth, Tape.left₀_nth] using this
       unfold TM.configurations at ih
       simp only [Function.iterate_succ_apply']
       rw [ih (by omega)]
       simp [tm, move_until, Transition.step, h_not_stop]
   have h_conf_n : tm.configurations (fun _ => tape) (n + 1) =
     ⟨1, (fun _ => (Turing.Tape.move dir)^[n] tape)⟩ := by
-    have h_is_stop : stop_condition (tape_nth n) := by
-      simpa [Turing.Tape.right₀_nth, n] using Nat.find_spec h_stop
+    have h_is_stop : stop_condition (tape_nth n) := Nat.find_spec h_stop
+    have h_head_eq : ((Turing.Tape.move dir)^[n] tape).head = tape_nth n := by
+      match dir with
+      | .right => simp [tape_nth, Turing.Tape.right₀_nth, Turing.Tape.move_right_n_head]
+      | .left => simp [tape_nth, Tape.left₀_nth, Tape.move_left_n_head]
     simp only [TM.configurations, Function.iterate_succ_apply', h_conf n (by omega)]
-    simp only [Transition.step, move_until, Turing.Tape.move_right_n_head,
-      h_is_stop, ↓reduceIte, perform_no_move, Configuration.mk.injEq, tm]
-    rw [move_right_iter_eq_move_int, write_eq_write_at, move_int_write_at]
-    simp
+    simp [Transition.step, move_until, h_head_eq, h_is_stop, tm]
   have h_tapes : (tm.configurations (fun _ => tape) (n + 1)).tapes =
       fun _ => tape.move_int (Nat.find h_stop) := by
-    rw [h_conf_n]; rfl
+    rw [h_conf_n]
+    ext i p
+    simp only [move_int_nth]
+    match dir with
+    | .right => 
+      rw [move_right_iter_eq_move_int]
+      simp [n]
+    | .left => 
+      rw [move_left_iter_eq_move_int]
+      simp only [n, move_int_nth]
+      congr 1
+      omega
   simpa [h_tapes] using TM.transforms_of_inert tm _ _
-    (move_right_until.inert_after_stop stop_condition) ⟨n + 1, h_conf_n⟩
+    (move_until.inert_after_stop dir stop_condition) ⟨n + 1, h_conf_n⟩

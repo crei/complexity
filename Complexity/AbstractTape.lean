@@ -22,6 +22,13 @@ lemma move_right_iter_eq_move_int {Γ} [Inhabited Γ]
   (Turing.Tape.move .right)^[n] tape = tape.move_int (Int.ofNat n) := by
   rfl
 
+lemma move_left_iter_eq_move_int {Γ} [Inhabited Γ]
+  (tape : Turing.Tape Γ) (n : ℕ) :
+  (Turing.Tape.move .left)^[n] tape = tape.move_int (Int.negSucc (n - 1)) := by
+  cases n with
+  | zero => rfl
+  | succ n => rfl
+
 @[simp]
 lemma move_int_zero {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) :
   tape.move_int 0 = tape := by
