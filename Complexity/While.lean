@@ -12,8 +12,8 @@ inductive WhileState (Q : Type*) where
 
 --- Repeatedly run a sub routine as long as a condition on the symbol
 --- at the first head is true.
-def Routine.while {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Q]
-  (tm : TM k.succ Q Γ) (condition : Γ → Bool) :
+def Routines.while {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Q]
+  (condition : Γ → Bool) (tm : TM k.succ Q Γ) :
   TM k.succ (WhileState Q) Γ :=
   let σ := fun state symbols =>
     match state with
@@ -28,3 +28,19 @@ def Routine.while {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Q]
         (.sub_routine s, op)
     | s => (s, (symbols ·, none))
   TM.mk σ (.main 0) (.main 1)
+
+lemma Routines.while.inert_after_stop {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Q]
+  (tm : TM k.succ Q Γ) (condition : Γ → Bool) :
+  (Routines.while condition tm).inert_after_stop := by
+  intro conf h_is_stopped
+  ext <;> simp_all [Transition.step, performTapeOps, Routines.while]
+
+theorem Routines.while.semantics {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (condition : Γ → Bool)
+  (tm : TM k.succ Q Γ)
+  (tapes : ℕ → Fin k.succ → Turing.Tape Γ)
+  (h_transform : ∀ i, tm.transforms (tapes i) (tapes i.succ))
+  (h_stops : ∃ m, ¬condition (tapes m 0).head) :
+  (Routines.while condition tm).transforms (tapes 0) (tapes (Nat.find h_stops)) := by
+  sorry

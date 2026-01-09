@@ -115,14 +115,3 @@ theorem Tape.left₀_nth {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) (n : ℕ) :
     simp only [Turing.Tape.nth, Turing.Tape.left₀, Turing.ListBlank.nth_succ,
       Turing.ListBlank.tail_cons]
     rfl
-
-theorem Tape.move_left_n_head {Γ} [Inhabited Γ] (T : Turing.Tape Γ) (i : ℕ) :
-    ((Turing.Tape.move .left)^[i] T).head = T.nth (-i) := by
-  induction i generalizing T with
-  | zero => rfl
-  | succ i ih =>
-    rw [Function.iterate_succ_apply']
-    simp only [Turing.Tape.move_left_nth, ih]
-    congr 1
-    omega
-

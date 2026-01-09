@@ -22,12 +22,12 @@ lemma move_right_iter_eq_move_int {Γ} [Inhabited Γ]
   (Turing.Tape.move .right)^[n] tape = tape.move_int (Int.ofNat n) := by
   rfl
 
-lemma move_left_iter_eq_move_int {Γ} [Inhabited Γ]
-  (tape : Turing.Tape Γ) (n : ℕ) :
-  (Turing.Tape.move .left)^[n] tape = tape.move_int (Int.negSucc (n - 1)) := by
-  cases n with
-  | zero => rfl
-  | succ n => rfl
+-- lemma move_left_iter_eq_move_int {Γ} [Inhabited Γ]
+--   (tape : Turing.Tape Γ) (n : ℕ) :
+--   (Turing.Tape.move .left)^[n] tape = tape.move_int (Int.negSucc (n - 1)) := by
+--   cases n with
+--   | zero => simp; rfl
+--   | succ n => rfl
 
 @[simp]
 lemma move_int_zero {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) :
@@ -65,6 +65,12 @@ lemma move_int_nth {Γ} [Inhabited Γ]
       rw [Function.iterate_succ_apply, ih, Turing.Tape.move_left_nth]
       congr 1
       omega
+
+@[simp]
+lemma move_int_head {Γ} [Inhabited Γ]
+  (tape : Turing.Tape Γ) (n : ℤ) :
+  (tape.move_int n).head = tape.nth n := by
+  rw [← Turing.Tape.nth_zero, move_int_nth, zero_add]
 
 @[ext]
 lemma tape_eq_of_nth {Γ} [Inhabited Γ]
