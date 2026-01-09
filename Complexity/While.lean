@@ -35,6 +35,27 @@ lemma Routines.while.inert_after_stop {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [D
   intro conf h_is_stopped
   ext <;> simp_all [Transition.step, performTapeOps, Routines.while]
 
+lemma Routines.while.single_iter {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (condition : Γ → Bool)
+  (tm : TM k.succ Q Γ)
+  (tapes₀ tapes₁ : Fin k.succ → Turing.Tape Γ)
+  (t : ℕ)
+  (h_transform : tm.transforms_in_exact_time tapes₀ tapes₁ t)
+  (h_not_stops : condition (tapes₀ 0).head) :
+  (Routines.while condition tm).configurations (tapes₀) (t + 2) =
+    ⟨.main 0, tapes₁⟩ := by
+  sorry
+
+lemma Routines.while.exit {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (condition : Γ → Bool)
+  (tm : TM k.succ Q Γ)
+  (tapes : Fin k.succ → Turing.Tape Γ)
+  (h_exits : ¬condition (tapes 0).head) :
+  (Routines.while condition tm).configurations tapes 1 = ⟨.main 1, tapes⟩ := by
+  simp [Routines.while, TM.configurations, Transition.step, performTapeOps, h_exits]
+
 theorem Routines.while.semantics {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
   (condition : Γ → Bool)
@@ -43,4 +64,11 @@ theorem Routines.while.semantics {k : ℕ} {Q Γ : Type*}
   (h_transform : ∀ i, tm.transforms (tapes i) (tapes i.succ))
   (h_stops : ∃ m, ¬condition (tapes m 0).head) :
   (Routines.while condition tm).transforms (tapes 0) (tapes (Nat.find h_stops)) := by
+  let tm_while := Routines.while condition tm
+  apply TM.transforms_of_inert tm_while _ _ (Routines.while.inert_after_stop _ _)
+  let m := Nat.find h_stops
+  -- we might need the following lemma:
+  --
+  -- if the while machine is in start state and the condition is false,
+  -- then
   sorry
