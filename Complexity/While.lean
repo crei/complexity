@@ -35,6 +35,37 @@ lemma Routines.while.inert_after_stop {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [D
   intro conf h_is_stopped
   ext <;> simp_all [Transition.step, performTapeOps, Routines.while]
 
+-- Helper lemma: while machine in subroutine state mirrors tm's execution
+lemma Routines.while.subroutine_runs_tm {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (condition : Γ → Bool)
+  (tm : TM k.succ Q Γ)
+  (tapes₀ tapes₁ : Fin k.succ → Turing.Tape Γ)
+  (t : ℕ)
+  (h_transform : tm.transforms_in_exact_time tapes₀ tapes₁ t) :
+  (Routines.while condition tm).transition.step^[t] ⟨.sub_routine tm.startState, tapes₀⟩ =
+    ⟨.sub_routine tm.stopState, tapes₁⟩ := by
+  -- The key insight: when in sub_routine state, the while machine just executes tm's transitions
+  have h_mirror : ∀ i ≤ t,
+    (Routines.while condition tm).transition.step^[i] ⟨.sub_routine tm.startState, tapes₀⟩ =
+    ⟨.sub_routine (tm.configurations tapes₀ i).state, (tm.configurations tapes₀ i).tapes⟩ := by
+    intro i h_i_le
+    induction i with
+    | zero => simp [TM.configurations]
+    | succ i ih =>
+      have h_i_lt : i < t := Nat.lt_of_succ_le h_i_le
+      specialize ih (Nat.le_of_lt h_i_lt)
+      rw [Function.iterate_succ_apply', ih]
+      simp only [Transition.step, Routines.while]
+      have h_not_stopped : (tm.configurations tapes₀ i).state ≠ tm.stopState := h_transform.2 i h_i_lt
+      -- rw [Function.iterate_succ_apply', ih]
+      simp only [Transition.step, Routines.while, TM.configurations] at h_not_stopped ⊢
+      split
+      · contradiction
+      · simp only [TM.configurations, Transition.step, Function.iterate_succ_apply]
+        rfl
+  rw [h_mirror t (Nat.le_refl t), h_transform.1]
+
 lemma Routines.while.single_iter {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
   (condition : Γ → Bool)
@@ -45,7 +76,25 @@ lemma Routines.while.single_iter {k : ℕ} {Q Γ : Type*}
   (h_not_stops : condition (tapes₀ 0).head) :
   (Routines.while condition tm).configurations (tapes₀) (t + 2) =
     ⟨.main 0, tapes₁⟩ := by
-  sorry
+  -- Step 1: Enter the subroutine
+  have h_step1 : (Routines.while condition tm).transition.step^[1] ⟨(Routines.while condition tm).startState, tapes₀⟩ =
+    ⟨.sub_routine tm.startState, tapes₀⟩ := by
+    simp only [Function.iterate_one, Transition.step, Routines.while]
+    simp [performTapeOps, h_not_stops]
+  -- Use the helper lemma to run the subroutine for t steps
+  have h_subroutine := Routines.while.subroutine_runs_tm condition tm tapes₀ tapes₁ t h_transform
+  -- Combine: 1 step to enter + t steps to run = step t+1 is at stopState
+  have h_step_t_plus_1 : (Routines.while condition tm).configurations tapes₀ (t + 1) =
+    ⟨.sub_routine tm.stopState, tapes₁⟩ := by
+    show (Routines.while condition tm).transition.step^[t + 1] ⟨(Routines.while condition tm).startState, tapes₀⟩ = _
+    conv_lhs => rw [show t + 1 = 1 + t by omega, Function.iterate_add_apply, Function.iterate_one, h_step1]
+    exact h_subroutine
+  -- Step t+2: Detect stop and return to main 0
+  show (Routines.while condition tm).transition.step^[t + 2] _ = _
+  rw [Function.iterate_succ_apply']
+  unfold TM.configurations at h_step_t_plus_1
+  rw [h_step_t_plus_1]
+  simp [Transition.step, Routines.while, performTapeOps]
 
 lemma Routines.while.exit {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
