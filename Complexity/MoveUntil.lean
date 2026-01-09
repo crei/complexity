@@ -6,6 +6,8 @@ import Complexity.While
 
 import Mathlib
 
+--- A 1-tape Turing machine that moves its head in a given direction
+--- once and then halts.
 def Routines.move {Γ} [Inhabited Γ]
   (dir : Turing.Dir) :
   TM 1 (Fin 2) Γ :=
@@ -28,8 +30,8 @@ lemma Routines.move.semantics {Γ} [Inhabited Γ] [DecidableEq Γ]
   let tm := Routines.move (Γ := Γ) dir
   exact TM.transforms_of_inert tm _ _ (move.inert_after_stop dir) ⟨1, rfl⟩
 
---- Returns a 1-tape Turing machine that moves its head
---- in a certain direction until a condition is met.
+--- A 1-tape Turing machine that moves its head
+--- in a given direction until a condition is met.
 def move_until {Γ} [Inhabited Γ]
   (dir : Turing.Dir) (stop_condition : Γ → Bool) :=
   Routines.while (¬stop_condition ·) (Routines.move dir)
