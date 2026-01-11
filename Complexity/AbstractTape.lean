@@ -59,12 +59,6 @@ lemma move_int_nth {Γ} [Inhabited Γ]
       congr 1
       omega
 
-@[simp]
-lemma move_int_head {Γ} [Inhabited Γ]
-  (tape : Turing.Tape Γ) (n : ℤ) :
-  (tape.move_int n).head = tape.nth n := by
-  rw [← Turing.Tape.nth_zero, move_int_nth, zero_add]
-
 @[ext]
 lemma tape_eq_of_nth {Γ} [Inhabited Γ]
   (tape₁ tape₂ : Turing.Tape Γ)

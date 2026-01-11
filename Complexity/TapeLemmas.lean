@@ -106,12 +106,3 @@ lemma Tape.mk₁_default {Γ} [Inhabited Γ] :
 @[simp]
 lemma Tape.write_mk₁_nil {Γ} [Inhabited Γ] (c : Γ) :
   Turing.Tape.write c (Turing.Tape.mk₁ []) = Turing.Tape.mk₁ [c] := by rfl
-
-theorem Tape.left₀_nth {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) (n : ℕ) :
-  tape.left₀.nth n = tape.nth (-n) := by
-  cases n with
-  | zero => simp [Turing.Tape.nth, Turing.Tape.left₀]
-  | succ n =>
-    simp only [Turing.Tape.nth, Turing.Tape.left₀, Turing.ListBlank.nth_succ,
-      Turing.ListBlank.tail_cons]
-    rfl

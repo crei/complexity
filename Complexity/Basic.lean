@@ -1,5 +1,5 @@
 import Complexity.Dyadic
-import Complexity.MoveUntil
+import Complexity.MoveRightUntil
 import Complexity.Successor
 import Complexity.TuringMachine
 import Complexity.TMComposition
@@ -7,3 +7,4 @@ import Complexity.Classes
 import Complexity.TimeInSpace
 import Complexity.Bounds
 import Complexity.SpaceInTime
+import Complexity.While
