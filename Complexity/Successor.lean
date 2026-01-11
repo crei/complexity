@@ -2,21 +2,14 @@ import Complexity.TuringMachine
 import Complexity.TapeLemmas
 import Complexity.Dyadic
 import Complexity.Routines
-import Complexity.MoveRightUntil
--- import Complexity.TMComposition
+import Complexity.MoveUntil
+import Complexity.TMComposition
 import Complexity.Dyadic
 
 import Mathlib
 
 def dya (n : ℕ) : List Char :=
   (dyadic_encoding n).map (fun x => if x then '2' else '1')
-
-def List.coe_schar (x : List Char) : List SChar :=
-  x.map (fun c => ↑c)
-
-@[simp]
-lemma List.coe_schar_length (x : List Char) :
-  x.coe_schar.length = x.length := by simp [List.coe_schar]
 
 --- The "core" part of the successor function:
 --- If the head is on the separator, increments the dyadic number
@@ -149,13 +142,31 @@ def is_blank : SChar -> Bool
   | .blank => true
   | _ => false
 
-def successor := ((((move_right_until is_separator).seq
-  (Routine.move .left)) successor_core).seq (move_until .left is_blank)).seq (Routine.move .right)
+--- Successor Turing machine:
+--- 1-tape Turing machine that increments the first word on the first
+--- tape interpreted as a dyadic number.
+def successor :=
+  ((((move_until .right is_separator).seq
+  (Routines.move .left)).seq
+  successor_core).seq
+  (move_until .left is_blank)).seq
+  (Routines.move .right)
 
 theorem successor.semantics (n : Nat) (ws : List (List Char)) :
   successor.transforms_list
     (fun _ => (dya n) :: ws)
     (fun _ => (dya n.succ) :: ws) := by
+  let tape₀ := list_to_tape ((dya n) :: ws)
+  have h1 : (move_until .right is_separator).transforms
+    (fun _ => Turing.Tape.mk₁ ((dya n).coe_schar ++ (.sep ::ws)))
+    (fun _ => Turing.Tape.move_int
+      (Turing.Tape.mk₁ ((dya n).coe_schar ++ ['sep'] ++ ws.concat)) (dya n).length) := by
+    apply move_until.right_semantics
+    · simp [is_separator, dya]
+    · use (dya n).length
+      simp [dya]
+  let tm := successor
+
 
 
   sorry

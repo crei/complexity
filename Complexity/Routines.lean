@@ -32,15 +32,24 @@ instance : Inhabited SChar where
 instance : Coe Char SChar where
   coe c := .ofChar c
 
+--- Character-by-character coercion from List Char to List SChar.
+--- If we use the built-in coercion, Lean uses filter_map instead of map.
+def List.coe_schar (x : List Char) : List SChar :=
+  x.map (fun c => ↑c)
+
+@[simp]
+lemma List.coe_schar_length (x : List Char) :
+  x.coe_schar.length = x.length := by simp [List.coe_schar]
+
 def list_to_string (ls : List (List Char)) : List SChar :=
-  (ls.map (fun w : List Char => ↑w ++ [SChar.sep])).flatten
+  (ls.map (fun w : List Char => w.coe_schar ++ [SChar.sep])).flatten
 
 lemma list_to_string_empty :
   list_to_string [] = [] := by
   rfl
 
 lemma list_to_string_cons (w : List Char) (ws : List (List Char)) :
-  list_to_string (w :: ws) = (↑w : List SChar) ++ (SChar.sep :: list_to_string ws) := by
+  list_to_string (w :: ws) = (w.coe_schar : List SChar) ++ (SChar.sep :: list_to_string ws) := by
   simp [list_to_string]
 
 lemma list_to_string_nonempty {w : List Char} {ws : List (List Char)} :
@@ -50,12 +59,12 @@ lemma list_to_string_nonempty {w : List Char} {ws : List (List Char)} :
 @[simp]
 lemma list_to_string_nil_cons_head (ws : List (List Char)) :
   (list_to_string ([] :: ws)).head list_to_string_nonempty = SChar.sep := by
-  simp [list_to_string]
+  simp [list_to_string, List.coe_schar]
 
 @[simp]
 lemma list_to_string_nil_cons_tail (ws : List (List Char)) :
   (list_to_string ([] :: ws)).tail = list_to_string ws := by
-  simp [list_to_string]
+  simp [list_to_string, List.coe_schar]
 
 @[simp]
 lemma list_to_string_head_nonempty
@@ -63,7 +72,7 @@ lemma list_to_string_head_nonempty
   (w : List Char)
   (ws : List (List Char)) :
   (list_to_string ((c :: w) :: ws)).head list_to_string_nonempty = ↑c := by
-  simp [list_to_string]
+  simp [list_to_string, List.coe_schar]
 
 @[simp]
 lemma list_to_string_headI_nonempty
@@ -71,7 +80,7 @@ lemma list_to_string_headI_nonempty
   (w : List Char)
   (ws : List (List Char)) :
   (list_to_string ((c :: w) :: ws)).headI = ↑c := by
-  simp [list_to_string]
+  simp [list_to_string, List.coe_schar]
 
 @[simp]
 lemma list_to_string_tail_nonempty
@@ -79,7 +88,7 @@ lemma list_to_string_tail_nonempty
   (w : List Char)
   (ws : List (List Char)) :
   (list_to_string ((c :: w) :: ws)).tail = (list_to_string (w :: ws)) := by
-  simp [list_to_string]
+  simp [list_to_string, List.coe_schar]
 
 def list_to_tape (ls : List (List Char)) : Turing.Tape SChar :=
   Turing.Tape.mk₁ (list_to_string ls)
@@ -91,7 +100,7 @@ lemma list_to_tape_nil :
 lemma list_to_tape_cons (w : List Char) (ws : List (List Char)) :
   list_to_tape (w :: ws) =
     Turing.Tape.mk₁ ((↑w : List SChar) ++ (SChar.sep :: list_to_string ws)) := by
-  simp [list_to_tape, list_to_string]
+  simp [list_to_tape, list_to_string, List.coe_schar]
 
 @[simp]
 lemma list_to_tape_nil_head :
@@ -159,10 +168,10 @@ lemma cons_empty_two_steps (ws : List (List Char)) :
     lists_to_configuration (fun _ => [] :: ws) 2 := by
   cases ws with
   | nil => simp [lists_to_configuration, list_to_tape_nil, list_to_tape_cons, cons_empty,
-                Transition.step, list_to_string]
+                Transition.step, list_to_string, List.coe_schar]
   | cons w ws =>
     cases w <;> simp [lists_to_configuration, list_to_tape_cons, cons_empty,
-                      Transition.step, list_to_string_cons]
+                      Transition.step, list_to_string_cons, List.coe_schar]
 
 theorem cons_empty_semantics (ws : List (List Char)) :
   cons_empty.transforms_list (fun _ => ws) (fun _ => [] :: ws) := by
