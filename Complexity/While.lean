@@ -5,7 +5,6 @@ import Complexity.AbstractTape
 
 import Mathlib
 
-
 inductive WhileState (Q : Type*) where
   | main (q : Fin 2)
   | sub_routine (q : Q)
@@ -48,7 +47,7 @@ lemma Routines.while.subroutine_runs_tm {k : ℕ} {Q Γ : Type*}
     ⟨.sub_routine tm.stopState, tapes₁⟩ := by
   have h_mirror : ∀ i ≤ t,
     (Routines.while condition tm).transition.step^[i] ⟨.sub_routine tm.startState, tapes₀⟩ =
-    ⟨.sub_routine (tm.configurations tapes₀ i).state, (tm.configurations tapes₀ i).tapes⟩ := by
+      ⟨.sub_routine (tm.configurations tapes₀ i).state, (tm.configurations tapes₀ i).tapes⟩ := by
     intro i h_i_le
     induction i with
     | zero => simp [TM.configurations]
@@ -57,13 +56,14 @@ lemma Routines.while.subroutine_runs_tm {k : ℕ} {Q Γ : Type*}
       specialize ih (Nat.le_of_lt h_i_lt)
       rw [Function.iterate_succ_apply', ih]
       simp only [Transition.step, Routines.while]
-      have h_not_stopped : (tm.configurations tapes₀ i).state ≠ tm.stopState := h_transform.2 i h_i_lt
+      have h_not_stopped : (tm.configurations tapes₀ i).state ≠ tm.stopState :=
+        h_transform.2 i h_i_lt
       simp only [TM.configurations] at h_not_stopped ⊢
       split
       · contradiction
-      ·
-        simp +decide [ *, Function.iterate_succ_apply' ];
-        exact ⟨ rfl, rfl ⟩ -- This should be rfl but needs additional unfolding
+      · simp only [Function.iterate_succ_apply', Configuration.mk.injEq,
+          WhileState.sub_routine.injEq]
+        exact ⟨ rfl, rfl ⟩
   rw [h_mirror t (Nat.le_refl t), h_transform.1]
 
 lemma Routines.while.single_iter {k : ℕ} {Q Γ : Type*}
@@ -99,6 +99,9 @@ lemma Routines.while.exit {k : ℕ} {Q Γ : Type*}
   (Routines.while condition tm).configurations tapes 1 = ⟨.main 1, tapes⟩ := by
   simp [Routines.while, TM.configurations, Transition.step, performTapeOps, h_exits]
 
+--- Given a sequence of tape states between iterations of the while loop,
+--- and given that the subroutine tm correctly transforms each tape state to the next,
+--- then the while machine transforms the initial tape state to the final tape state.
 theorem Routines.while.semantics {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
   (condition : Γ → Bool)
