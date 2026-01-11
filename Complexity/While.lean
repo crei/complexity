@@ -5,6 +5,7 @@ import Complexity.AbstractTape
 
 import Mathlib
 
+
 inductive WhileState (Q : Type*) where
   | main (q : Fin 2)
   | sub_routine (q : Q)
@@ -45,7 +46,6 @@ lemma Routines.while.subroutine_runs_tm {k : ℕ} {Q Γ : Type*}
   (h_transform : tm.transforms_in_exact_time tapes₀ tapes₁ t) :
   (Routines.while condition tm).transition.step^[t] ⟨.sub_routine tm.startState, tapes₀⟩ =
     ⟨.sub_routine tm.stopState, tapes₁⟩ := by
-  -- The key insight: when in sub_routine state, the while machine just executes tm's transitions
   have h_mirror : ∀ i ≤ t,
     (Routines.while condition tm).transition.step^[i] ⟨.sub_routine tm.startState, tapes₀⟩ =
     ⟨.sub_routine (tm.configurations tapes₀ i).state, (tm.configurations tapes₀ i).tapes⟩ := by
@@ -58,12 +58,12 @@ lemma Routines.while.subroutine_runs_tm {k : ℕ} {Q Γ : Type*}
       rw [Function.iterate_succ_apply', ih]
       simp only [Transition.step, Routines.while]
       have h_not_stopped : (tm.configurations tapes₀ i).state ≠ tm.stopState := h_transform.2 i h_i_lt
-      -- rw [Function.iterate_succ_apply', ih]
-      simp only [Transition.step, Routines.while, TM.configurations] at h_not_stopped ⊢
+      simp only [TM.configurations] at h_not_stopped ⊢
       split
       · contradiction
-      · simp only [TM.configurations, Transition.step, Function.iterate_succ_apply]
-        rfl
+      ·
+        simp +decide [ *, Function.iterate_succ_apply' ];
+        exact ⟨ rfl, rfl ⟩ -- This should be rfl but needs additional unfolding
   rw [h_mirror t (Nat.le_refl t), h_transform.1]
 
 lemma Routines.while.single_iter {k : ℕ} {Q Γ : Type*}
@@ -87,8 +87,14 @@ lemma Routines.while.single_iter {k : ℕ} {Q Γ : Type*}
   have h_step_t_plus_1 : (Routines.while condition tm).configurations tapes₀ (t + 1) =
     ⟨.sub_routine tm.stopState, tapes₁⟩ := by
     show (Routines.while condition tm).transition.step^[t + 1] ⟨(Routines.while condition tm).startState, tapes₀⟩ = _
-    conv_lhs => rw [show t + 1 = 1 + t by omega, Function.iterate_add_apply, Function.iterate_one, h_step1]
-    exact h_subroutine
+    calc (Routines.while condition tm).transition.step^[t + 1] ⟨(Routines.while condition tm).startState, tapes₀⟩
+      _ = (Routines.while condition tm).transition.step^[1 + t] ⟨(Routines.while condition tm).startState, tapes₀⟩ := by rw [Nat.add_comm]
+      _ = (Routines.while condition tm).transition.step^[t] ((Routines.while condition tm).transition.step^[1] ⟨(Routines.while condition tm).startState, tapes₀⟩) := by
+        rw [ add_comm, Function.iterate_add_apply ]
+      _ = (Routines.while condition tm).transition.step^[t] ⟨.sub_routine tm.startState, tapes₀⟩ := by
+        -- Substitute h_step1 into the left-hand side of the equation.
+        rw [h_step1]
+      _ = ⟨.sub_routine tm.stopState, tapes₁⟩ := h_subroutine
   -- Step t+2: Detect stop and return to main 0
   show (Routines.while condition tm).transition.step^[t + 2] _ = _
   rw [Function.iterate_succ_apply']
@@ -115,9 +121,31 @@ theorem Routines.while.semantics {k : ℕ} {Q Γ : Type*}
   (Routines.while condition tm).transforms (tapes 0) (tapes (Nat.find h_stops)) := by
   let tm_while := Routines.while condition tm
   apply TM.transforms_of_inert tm_while _ _ (Routines.while.inert_after_stop _ _)
-  let m := Nat.find h_stops
-  -- we might need the following lemma:
-  --
-  -- if the while machine is in start state and the condition is false,
-  -- then
-  sorry
+  let iter_count := Nat.find h_stops
+  have h_no_stop : ∀ i < iter_count, condition (tapes i 0).head := by
+    intro i hi; simpa using Nat.find_min h_stops hi
+  -- for each iteration, there is a step count from the start to reach the start state again.
+  have h_iter_time : ∀ i ≤ iter_count, ∃ t : ℕ,
+      tm_while.configurations (tapes 0) t = ⟨.main 0, tapes i⟩ := by
+    intro i hi
+    induction' i with i ih;
+    · exact ⟨ 0, rfl ⟩;
+    · obtain ⟨ t, ht ⟩ := ih ( Nat.le_of_succ_le hi );
+      have h_time : ∃ t' : ℕ, (tm_while.configurations (tapes i) t' = ⟨.main 0, tapes (i + 1)⟩) := by
+        obtain ⟨ t', ht' ⟩ := h_transform i;
+        use t' + 2;
+        convert Routines.while.single_iter condition tm ( tapes i ) ( tapes ( i + 1 ) ) t' ht' ( h_no_stop i ( Nat.lt_of_succ_le hi ) ) using 1;
+      obtain ⟨ t', ht' ⟩ := h_time;
+      use t + t';
+      convert ht' using 1;
+      rw [ show tm_while.configurations ( tapes 0 ) ( t + t' ) = tm_while.transition.step^[t + t'] ⟨ tm_while.startState, tapes 0 ⟩ from rfl, show tm_while.configurations ( tapes i ) t' = tm_while.transition.step^[t'] ⟨ tm_while.startState, tapes i ⟩ from rfl ];
+      rw [ add_comm, Function.iterate_add_apply ];
+      exact?;
+  have h_time : ∃ t : ℕ, (tm_while.configurations (tapes 0) t = ⟨.main 0, tapes iter_count⟩) := by
+    exact h_iter_time iter_count le_rfl;
+  obtain ⟨ t, ht ⟩ := h_time;
+  use t + 1;
+  convert Routines.while.exit condition tm ( tapes iter_count ) _ using 1;
+  · convert congr_arg ( tm_while.transition.step ) ht using 1;
+    exact Function.iterate_succ_apply' _ _ _;
+  · exact Nat.find_spec h_stops
