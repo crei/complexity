@@ -119,3 +119,12 @@ lemma Tape.move_right_append {Γ} [Inhabited Γ] (A B C : List Γ) :
           simp [Turing.Tape.mk₂]
       _ = Turing.Tape.mk₂ (B.reverse ++ (b :: A)) C := by rw [ih]
       _ = Turing.Tape.mk₂ ((b :: B).reverse ++ A) C := by simp
+
+theorem Tape.left₀_nth {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) (n : ℕ) :
+  tape.left₀.nth n = tape.nth (-n) := by
+  cases n with
+  | zero => simp [Turing.Tape.nth, Turing.Tape.left₀]
+  | succ n =>
+    simp only [Turing.Tape.nth, Turing.Tape.left₀, Turing.ListBlank.nth_succ,
+      Turing.ListBlank.tail_cons]
+    rfl
