@@ -74,29 +74,17 @@ lemma Routines.while.single_iter {k : ℕ} {Q Γ : Type*}
   (t : ℕ)
   (h_transform : tm.transforms_in_exact_time tapes₀ tapes₁ t)
   (h_not_stops : condition (tapes₀ 0).head) :
-  (Routines.while condition tm).configurations (tapes₀) (t + 2) =
-    ⟨.main 0, tapes₁⟩ := by
-  -- Step 1: Enter the subroutine
-  have h_step1 : (Routines.while condition tm).transition.step^[1] ⟨(Routines.while condition tm).startState, tapes₀⟩ =
-    ⟨.sub_routine tm.startState, tapes₀⟩ := by
-    simp only [Function.iterate_one, Transition.step, Routines.while]
-    simp [performTapeOps, h_not_stops]
-  -- Use the helper lemma to run the subroutine for t steps
+  (Routines.while condition tm).configurations (tapes₀) (t + 2) = ⟨.main 0, tapes₁⟩ := by
+  let tm_while := Routines.while condition tm
+  have h_step1 : tm_while.transition.step ⟨tm_while.startState, tapes₀⟩ =
+      ⟨.sub_routine tm.startState, tapes₀⟩ := by
+    simp [Transition.step, Routines.while, tm_while, performTapeOps, h_not_stops]
   have h_subroutine := Routines.while.subroutine_runs_tm condition tm tapes₀ tapes₁ t h_transform
-  -- Combine: 1 step to enter + t steps to run = step t+1 is at stopState
-  have h_step_t_plus_1 : (Routines.while condition tm).configurations tapes₀ (t + 1) =
-    ⟨.sub_routine tm.stopState, tapes₁⟩ := by
-    show (Routines.while condition tm).transition.step^[t + 1] ⟨(Routines.while condition tm).startState, tapes₀⟩ = _
-    calc (Routines.while condition tm).transition.step^[t + 1] ⟨(Routines.while condition tm).startState, tapes₀⟩
-      _ = (Routines.while condition tm).transition.step^[1 + t] ⟨(Routines.while condition tm).startState, tapes₀⟩ := by rw [Nat.add_comm]
-      _ = (Routines.while condition tm).transition.step^[t] ((Routines.while condition tm).transition.step^[1] ⟨(Routines.while condition tm).startState, tapes₀⟩) := by
-        rw [ add_comm, Function.iterate_add_apply ]
-      _ = (Routines.while condition tm).transition.step^[t] ⟨.sub_routine tm.startState, tapes₀⟩ := by
-        -- Substitute h_step1 into the left-hand side of the equation.
-        rw [h_step1]
-      _ = ⟨.sub_routine tm.stopState, tapes₁⟩ := h_subroutine
-  -- Step t+2: Detect stop and return to main 0
-  show (Routines.while condition tm).transition.step^[t + 2] _ = _
+  have h_step_t_plus_1 : tm_while.configurations tapes₀ (t + 1) =
+      ⟨.sub_routine tm.stopState, tapes₁⟩ := by
+    unfold TM.configurations
+    rw [Function.iterate_succ_apply, h_step1, h_subroutine]
+  unfold TM.configurations
   rw [Function.iterate_succ_apply']
   unfold TM.configurations at h_step_t_plus_1
   rw [h_step_t_plus_1]
