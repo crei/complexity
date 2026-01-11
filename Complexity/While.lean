@@ -128,24 +128,22 @@ theorem Routines.while.semantics {k : ℕ} {Q Γ : Type*}
   have h_iter_time : ∀ i ≤ iter_count, ∃ t : ℕ,
       tm_while.configurations (tapes 0) t = ⟨.main 0, tapes i⟩ := by
     intro i hi
-    induction' i with i ih;
-    · exact ⟨ 0, rfl ⟩;
-    · obtain ⟨ t, ht ⟩ := ih ( Nat.le_of_succ_le hi );
-      have h_time : ∃ t' : ℕ, (tm_while.configurations (tapes i) t' = ⟨.main 0, tapes (i + 1)⟩) := by
-        obtain ⟨ t', ht' ⟩ := h_transform i;
-        use t' + 2;
-        convert Routines.while.single_iter condition tm ( tapes i ) ( tapes ( i + 1 ) ) t' ht' ( h_no_stop i ( Nat.lt_of_succ_le hi ) ) using 1;
-      obtain ⟨ t', ht' ⟩ := h_time;
-      use t + t';
-      convert ht' using 1;
-      rw [ show tm_while.configurations ( tapes 0 ) ( t + t' ) = tm_while.transition.step^[t + t'] ⟨ tm_while.startState, tapes 0 ⟩ from rfl, show tm_while.configurations ( tapes i ) t' = tm_while.transition.step^[t'] ⟨ tm_while.startState, tapes i ⟩ from rfl ];
-      rw [ add_comm, Function.iterate_add_apply ];
-      exact?;
-  have h_time : ∃ t : ℕ, (tm_while.configurations (tapes 0) t = ⟨.main 0, tapes iter_count⟩) := by
-    exact h_iter_time iter_count le_rfl;
-  obtain ⟨ t, ht ⟩ := h_time;
-  use t + 1;
-  convert Routines.while.exit condition tm ( tapes iter_count ) _ using 1;
-  · convert congr_arg ( tm_while.transition.step ) ht using 1;
-    exact Function.iterate_succ_apply' _ _ _;
-  · exact Nat.find_spec h_stops
+    induction i with
+    | zero => exact ⟨0, rfl⟩
+    | succ i ih =>
+      obtain ⟨ t, ht ⟩ := ih ( Nat.le_of_succ_le hi );
+      have h_time : ∃ t', (tm_while.configurations (tapes i) t' = ⟨.main 0, tapes (i + 1)⟩) := by
+        obtain ⟨ t', ht' ⟩ := h_transform i
+        use t' + 2
+        simpa using Routines.while.single_iter condition tm
+          (tapes i) (tapes (i + 1)) t' ht' (h_no_stop i (Nat.lt_of_succ_le hi))
+      obtain ⟨ t', ht' ⟩ := h_time
+      use t' + t
+      unfold TM.configurations at ht ht' ⊢
+      have h_startState : .main 0 = tm_while.startState := rfl
+      simp [Function.iterate_add, ht', ht, h_startState]
+  obtain ⟨ t, ht ⟩ := h_iter_time iter_count le_rfl
+  use t + 1
+  convert Routines.while.exit condition tm (tapes iter_count) (Nat.find_spec h_stops) using 1
+  convert congr_arg (tm_while.transition.step) ht using 1
+  exact Function.iterate_succ_apply' _ _ _
