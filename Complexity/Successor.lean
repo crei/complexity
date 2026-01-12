@@ -152,21 +152,39 @@ def successor :=
   (move_until .left is_blank)).seq
   (Routines.move .right)
 
-theorem successor.semantics (n : Nat) (ws : List (List Char)) :
-  successor.transforms_list
-    (fun _ => (dya n) :: ws)
-    (fun _ => (dya n.succ) :: ws) := by
-  let tape₀ := list_to_tape ((dya n) :: ws)
-  have h1 : (move_until .right is_separator).transforms
-    (fun _ => Turing.Tape.mk₁ ((dya n).coe_schar ++ (.sep ::ws)))
-    (fun _ => Turing.Tape.move_int
-      (Turing.Tape.mk₁ ((dya n).coe_schar ++ ['sep'] ++ ws.concat)) (dya n).length) := by
-    apply move_until.right_semantics
-    · simp [is_separator, dya]
-    · use (dya n).length
-      simp [dya]
-  let tm := successor
-
-
-
+lemma successor.semantics' (n : Nat) (ws : List SChar) :
+  successor.transforms
+    (fun _ => Turing.Tape.mk₁ ((dya n).coe_schar ++ (.sep :: ws)))
+    (fun _ => Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ (.sep :: ws))) := by
+  let tape₀ := fun _ : Fin 1 => Turing.Tape.mk₁ ((dya n).coe_schar ++ (.sep :: ws))
+  let tape₁ := fun _ : Fin 1 => Turing.Tape.mk₂ (dya n).coe_schar.reverse (.sep :: ws)
+  let tape₂ := fun i : Fin 1 => Turing.Tape.move .left (tape₁ i)
+  have h_dya_length_nonneg : ¬(((dya n).length : ℤ) < 0) := by simp
+  have h_tr₁ : (move_until .right is_separator).transforms tape₀ tape₁ := by
+    convert move_until.right_till_separator [] (dya n).coe_schar ws .sep ?_
+    · simp [is_separator]; split <;> simp_all
+    · rw [←Int.ofNat_eq_natCast, ←move_right_iter_eq_move_int, Tape.move_right_append]
+      simp [tape₁]
+    · exact List.coe_schar_get_neq_sep _
   sorry
+
+
+-- theorem successor.semantics (n : Nat) (ws : List (List Char)) :
+--   successor.transforms_list
+--     (fun _ => (dya n) :: ws)
+--     (fun _ => (dya n.succ) :: ws) := by
+--   let tape₀ := list_to_tape ((dya n) :: ws)
+--   let tape₁ := Turing.Tape.mk₁
+--   have h1 (ws : List SChar) : (move_until .right is_separator).transforms
+--     (fun _ => Turing.Tape.mk₁ ((dya n).coe_schar ++ (.sep :: ws)))
+--     (fun _ => Turing.Tape.move_int
+--       (Turing.Tape.mk₁ ((dya n).coe_schar ++ ['sep'] ++ ws.concat)) (dya n).length) := by
+--     apply move_until.right_semantics
+--     · simp [is_separator, dya]
+--     · use (dya n).length
+--       simp [dya]
+--   let tm := successor
+
+
+
+--   sorry

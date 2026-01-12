@@ -35,11 +35,15 @@ instance : Coe Char SChar where
 --- Character-by-character coercion from List Char to List SChar.
 --- If we use the built-in coercion, Lean uses filter_map instead of map.
 def List.coe_schar (x : List Char) : List SChar :=
-  x.map (fun c => ↑c)
+  x.map (fun c => SChar.ofChar c)
 
 @[simp]
 lemma List.coe_schar_length (x : List Char) :
   x.coe_schar.length = x.length := by simp [List.coe_schar]
+
+lemma List.coe_schar_get_neq_sep (x : List Char) (n : Fin x.coe_schar.length) :
+  x.coe_schar.get n ≠ .sep := by
+  simp [List.coe_schar]
 
 def list_to_string (ls : List (List Char)) : List SChar :=
   (ls.map (fun w : List Char => w.coe_schar ++ [SChar.sep])).flatten
@@ -99,7 +103,7 @@ lemma list_to_tape_nil :
 
 lemma list_to_tape_cons (w : List Char) (ws : List (List Char)) :
   list_to_tape (w :: ws) =
-    Turing.Tape.mk₁ ((↑w : List SChar) ++ (SChar.sep :: list_to_string ws)) := by
+    Turing.Tape.mk₁ ((w.coe_schar) ++ (SChar.sep :: list_to_string ws)) := by
   simp [list_to_tape, list_to_string, List.coe_schar]
 
 @[simp]
@@ -116,8 +120,9 @@ lemma list_to_tape_head_nonempty
   (c : Char)
   (w : List Char)
   (l : List (List Char)) :
-  (list_to_tape ((c :: w) :: l)).head = ↑c := by
+  (list_to_tape ((c :: w) :: l)).head = c := by
   simp [list_to_tape_cons, Turing.Tape.mk₁, Turing.Tape.mk₂]
+  rfl
 
 def lists_to_configuration {k : ℕ} {Q : Type*} (lists : Fin k → List (List Char)) (state : Q) :
   Configuration k Q SChar :=
@@ -200,7 +205,7 @@ lemma cons_char_inert_after_stop
 lemma cons_char_two_steps (c : Char) (w : List Char) (ws : List (List Char)) :
   (cons_char c).transition.step^[2] (lists_to_configuration (fun _ => w :: ws) 0) =
     lists_to_configuration (fun _ => (c :: w) :: ws) 2 := by
-  cases w <;> simp [lists_to_configuration, list_to_tape_cons, cons_char, Transition.step]
+  cases w <;> simp [lists_to_configuration, list_to_tape_cons, cons_char, Transition.step] <;> rfl
 
 theorem cons_char_semantics (c : Char) (w : List Char) (ws : List (List Char)) :
   (cons_char c).transforms_list (fun _ => w :: ws) (fun _ => ((c :: w) :: ws)) := by
