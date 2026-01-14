@@ -161,7 +161,8 @@ lemma successor.semantics' (n : Nat) (ws : List SChar) :
   let tape₂ := fun i : Fin 1 => Turing.Tape.move .left (tape₁ i)
   let tape₃ (shift : ℕ) := fun _ : Fin 1 => (Turing.Tape.move .right)^[shift]
          (Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ (.sep :: ws)))
-  let tape₄ := fun _ : Fin 1 => Turing.Tape.mk₁ (.blank :: ((dya n.succ).coe_schar ++ (.sep :: ws)))
+  let tape₄ := fun _ : Fin 1 => (Turing.Tape.mk₁
+                         ((dya n.succ).coe_schar ++ (.sep :: ws))).move .left
   let tape₅ := fun _ : Fin 1 => Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ (.sep :: ws))
   have h_dya_length_nonneg : ¬(((dya n).length : ℤ) < 0) := by simp
   have h_tr₁ : (move_until .right is_separator).transforms tape₀ tape₁ := by
@@ -173,7 +174,21 @@ lemma successor.semantics' (n : Nat) (ws : List SChar) :
   have h_tr₂ : (Routines.move .left).transforms tape₁ tape₂ := by
     exact Routines.move.semantics (tape₁ 0) .left
   have h_tr₃ : ∃ shift < (dya n.succ).length, successor_core.transforms tape₂ (tape₃ shift) := by
-    sorry
+    exact successor_core.semantics n (.sep :: ws)
+  have h_tr₄ : ∀ shift < (dya n.succ).length, (move_until .left is_blank).transforms
+      (tape₃ shift) tape₄ := by
+    intro shift h_shift
+    convert move_until.left_till_blank ((dya n.succ).coe_schar ++ (.sep :: ws)) shift ?_ ?_
+    · simp [is_blank, default]; split <;> simp_all
+    · simp only [List.length_append, List.coe_schar_length, List.length_cons]; omega
+    · intro i h_ilt
+      have h_coe_i_lt : (i : ℕ) < (dya n.succ).length := by omega
+      have : ((dya n.succ).coe_schar ++ SChar.sep :: ws).get ⟨(i : ℕ), by omega⟩ =
+          (dya n.succ).get ⟨(i : ℕ), (by omega)⟩ := by simp [List.coe_schar, h_coe_i_lt]
+      rw [this]
+      simp
+  have h_tr₅ : (Routines.move .right).transforms tape₄ tape₅ := by
+    simpa [tape₅, tape₄] using Routines.move.semantics (tape₄ 0) .right
   sorry
 
 

@@ -45,6 +45,11 @@ lemma List.coe_schar_get_neq_sep (x : List Char) (n : Fin x.coe_schar.length) :
   x.coe_schar.get n ≠ .sep := by
   simp [List.coe_schar]
 
+lemma List.coe_schar_get_neq_blank (x : List Char) (n : Fin x.coe_schar.length) :
+  x.coe_schar.get n ≠ .blank := by
+  simp [List.coe_schar]
+
+
 def list_to_string (ls : List (List Char)) : List SChar :=
   (ls.map (fun w : List Char => w.coe_schar ++ [SChar.sep])).flatten
 

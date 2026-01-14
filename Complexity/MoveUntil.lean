@@ -100,3 +100,29 @@ theorem move_until.right_till_separator {Γ} [Inhabited Γ] [DecidableEq Γ]
       simp [this, List.getElem?_append, h_nlt]
     rw [this]
     simpa using h_sep ⟨n, (by omega)⟩
+
+
+theorem move_until.left_till_blank {Γ} [Inhabited Γ] [DecidableEq Γ]
+  (l : List Γ)
+  (n : ℕ)
+  (h_nlt : n < l.length)
+  (h_non_blank : ∀ i : Fin l.length, i < n → l.get i ≠ default) :
+  (move_until .left (fun c => c = default)).transforms
+    (fun _ => (Turing.Tape.move .right)^[n] (Turing.Tape.mk₁ l))
+    (fun _ => (Turing.Tape.mk₁ l).move .left) := by
+  sorry
+  -- let tape := Turing.Tape.mk₂ (l₁ ++ (sep :: l₂)) r
+  -- have h_stop : ∃ n : ℕ, (fun c => decide (c = sep)) (tape.nth (-n)) := by
+  --   use l₁.length
+  --   simp [tape]
+  -- convert move_until.left_semantics tape (fun c => c = sep) h_stop
+  -- rw [(Nat.find_eq_iff h_stop (m := l₁.length)).mpr]
+  -- constructor
+  -- · simp [tape]
+  -- · intro n h_nlt
+  --   have : tape.nth n = List.get r₁ ⟨n, (by omega)⟩ := by
+  --     simp [tape]
+  --     have : ¬((n : ℤ) < 0) := by omega
+  --     simp [this, List.getElem?_append, h_nlt]
+  --   rw [this]
+  --   simpa using h_sep ⟨n, (by omega)⟩
