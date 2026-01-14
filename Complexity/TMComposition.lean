@@ -410,8 +410,8 @@ lemma TM.seq.inert_after_stop_of_inert_after_stop {k : ℕ} {Q1 Q2 Γ : Type*}
 --- Semantics of sequential composition of Turing Machines.
 theorem TM.seq.semantics {k : ℕ} {Q1 Q2 Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
-  (tm₁ : TM k Q1 Γ) (tm₂ : TM k Q2 Γ)
-  (tapes₀ tapes₁ tapes₂ : Fin k → Turing.Tape Γ)
+  {tm₁ : TM k Q1 Γ} {tm₂ : TM k Q2 Γ}
+  {tapes₀ tapes₁ tapes₂ : Fin k → Turing.Tape Γ}
   (h_first : tm₁.transforms tapes₀ tapes₁)
   (h_second : tm₂.transforms tapes₁ tapes₂) :
   (TM.seq tm₁ tm₂).transforms tapes₀ tapes₂ := by

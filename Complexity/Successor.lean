@@ -1,165 +1,206 @@
 import Complexity.TuringMachine
-import Complexity.Dyadic
 import Complexity.TapeLemmas
-import Complexity.Classes
+import Complexity.Dyadic
+import Complexity.Routines
+import Complexity.MoveUntil
+import Complexity.TMComposition
+import Complexity.Dyadic
 
 import Mathlib
 
-inductive OneTwo where
-  | one
-  | two
-  deriving DecidableEq, Fintype
+def dya (n : ℕ) : List Char :=
+  (dyadic_encoding n).map (fun x => if x then '2' else '1')
 
-def succ_transition : Transition 1 (Fin 2) (Option OneTwo) :=
-  fun state symbols =>
+--- The "core" part of the successor function:
+--- If the head is on the separator, increments the dyadic number
+--- left of it and stops as soon as it is done, i.e. does not
+--- move to the left end of the word.
+def successor_core : TM 1 (Fin 2) SChar :=
+  let σ := fun state symbols =>
     match state with
     | 0 => match symbols 0 with
-      | none => (1, fun _ => (some .one, none))
-      | some .one => (1, fun _ => (some .two, none))
-      | some .two => (0, fun _ => (some .one, some .right))
+      | .sep => (0, fun _ => (.sep, some .left))
+      | .blank => (1, fun _ => ('1', none))
+      | '1' => (1, fun _ => ('2', none))
+      | '2' => (0, fun _ => ('1', some .left))
+      | _ => (0, (symbols ·, none))
     | 1 => (1, (symbols ·, none))
+  TM.mk σ 0 1
 
-@[simp]
-lemma succ_transition.inert
-  (c : Configuration 1 (Fin 2) (Option OneTwo))
-  (h_is_stopped : c.state = 1) :
-  succ_transition.step c = c := by
-  unfold Transition.step; ext <;> simp [succ_transition, h_is_stopped]
+lemma successor_core.inert_after_stop :
+  successor_core.inert_after_stop := by
+  intro conf h_is_stopped
+  ext <;> simp_all [Transition.step, performTapeOps, successor_core]
 
-theorem stop_state_inert (tapes : Fin 1 → Turing.Tape (Option OneTwo)) (n : ℕ) :
-  succ_transition.step^[n] ⟨1, tapes⟩ = ⟨1, tapes⟩ := by
-  refine Function.iterate_fixed ?_ _
-  simp [succ_transition, Transition.step]
+lemma successor_core.step_start_empty (ws : List SChar) :
+  successor_core.transition.step
+    ⟨0, fun _ => Turing.Tape.mk₂ [] (.sep :: ws)⟩ =
+    ⟨0, fun _ => Turing.Tape.mk₂ [] (.blank :: .sep :: ws)⟩ := by
+  simp [successor_core, Transition.step, Turing.Tape.mk₂, default]
 
--- A Turing machine that computes the successor of a
--- reversely encoded dyadic number
-def succ_tm : TM 1 (Fin 2) (Option OneTwo) := {
-  transition := succ_transition
-  startState := 0
-  stopState := 1
-}
+lemma successor_core.step_start (c : SChar) (ws₁ ws₂ : List SChar) :
+  successor_core.transition.step
+    ⟨0, fun _ => Turing.Tape.mk₂ (c :: ws₁) (.sep :: ws₂)⟩ =
+    ⟨0, fun _ => Turing.Tape.mk₂ ws₁ (c :: .sep :: ws₂)⟩ := by
+  simp [successor_core, Transition.step, Turing.Tape.mk₂]
 
-def rev_dya (n : ℕ) : List OneTwo :=
-  (dyadic_encoding_reverse n).map (fun x => if x then .two else .one)
+lemma successor_core.step_odd (n : ℕ) (ws : List SChar) :
+  successor_core.transition.step
+    ⟨successor_core.startState, fun _ => Turing.Tape.move Turing.Dir.left
+      (Turing.Tape.mk₂ (dya (2 * n + 1)).coe_schar.reverse ws)⟩ =
+    ⟨successor_core.stopState, fun _ => Turing.Tape.move Turing.Dir.left
+      (Turing.Tape.mk₂ (dya (2 * n + 2)).coe_schar.reverse ws)⟩ := by
+  simp [successor_core, Transition.step, Turing.Tape.mk₂, dya, dyadic_encoding_prop_one,
+        dyadic_encoding_prop_two, performTapeOps, List.coe_schar]
 
-def rev_dya_option (n : ℕ) : List (Option OneTwo) :=
-  (rev_dya n).map some
+lemma successor_core.step_even (n : ℕ) (ws : List SChar) :
+  successor_core.transition.step
+    ⟨successor_core.startState, fun _ => .move .left
+      (.mk₂ (dya (2 * n + 2)).coe_schar.reverse ws)⟩ =
+    ⟨successor_core.startState, fun _ => .move .left (.move .left
+      (.mk₂ (dya (2 * n + 1)).coe_schar.reverse ws))⟩ := by
+  simp [successor_core, Transition.step, Turing.Tape.mk₂, performTapeOps,
+        dya, List.coe_schar, dyadic_encoding_prop_two, dyadic_encoding_prop_one]
 
-@[simp]
-lemma rev_dya_zero : rev_dya_option 0 = [] := by
-  simp [rev_dya_option, rev_dya, dyadic_encoding_reverse]
+lemma dya_odd_tape (n : ℕ) (ws : List SChar) :
+  Turing.Tape.move .left (.mk₂ (dya (2 * n + 1)).coe_schar.reverse ws) =
+    Turing.Tape.mk₂ (dya n).coe_schar.reverse ('1' :: ws) := by
+  simp [dya, dyadic_encoding_prop_one, Turing.Tape.mk₂, Turing.Tape.move_left_mk', List.coe_schar]
 
-@[simp]
-lemma rev_dya_odd (n : ℕ) : rev_dya (2 * n + 1) = .one :: rev_dya (n) := by
-  simp [rev_dya, dyadic_encoding_reverse_prop_one]
+lemma dya_odd_iter (n : ℕ) :
+    dya (2 * n + 2 + 1) = dya (n + 1) ++ ['1'] := by
+  have : 2 * n + 2 + 1 = 2 * (n + 1) + 1 := by ring
+  rw [this]
+  simp [dya, dyadic_encoding_prop_one]
 
-@[simp]
-lemma rev_dya_option_odd (n : ℕ) :
-    rev_dya_option (2 * n + 1) = (some .one) :: rev_dya_option (n) := by
-  simp [rev_dya_option]
+lemma move_left_mk₂_move_right {Γ} [Inhabited Γ] (A B : List Γ) :
+  Turing.Tape.move_int (.mk₂ A.reverse B) (-1) =
+     Turing.Tape.move_int (.mk₂ [] (A ++ B)) ((A.length : ℤ) - 1) := by
+  calc Turing.Tape.move_int (.mk₂ A.reverse B) (-1)
+      = Turing.Tape.move_int ((.move .right)^[A.length] (.mk₂ [] (A ++ B))) (-1) := by
+        simp [Tape.move_right_append]
+    _ = .move_int (.mk₂ [] (A ++ B)) ((A.length : ℤ) - 1) := by
+      rw [move_right_iter_eq_move_int]
+      rw [move_int_move_int]
+      congr
 
-@[simp]
-lemma rev_dya_even (n : ℕ) : rev_dya (2 * n + 2) = .two :: rev_dya (n) := by
-  simp [rev_dya, dyadic_encoding_reverse_prop_two]
-
-@[simp]
-lemma rev_dya_option_even (n : ℕ) :
-    rev_dya_option (2 * n + 2) = (some .two) :: rev_dya_option (n) := by
-  simp [rev_dya_option]
-
-theorem rev_dya_bijective : Function.Bijective rev_dya := by
-  exact Function.Bijective.comp
-    (Function.Bijective.list_map (by decide)) dyadic_encoding_reverse_bijective
-
-theorem rev_dya_length (n : ℕ) : (rev_dya n).length = (n + 1).log2 := by
-  simp [rev_dya, dyadic_reverse_length]
-
-lemma succ_step_odd (n : ℕ) (pref : List (Option OneTwo)) :
-  succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option (2 * n + 1)))⟩) =
-    ⟨1, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option (2 * n + 2)))⟩ := by
-  simp [succ_transition, Transition.step, Turing.Tape.mk₂]
-
-lemma succ_step_even' (n : ℕ) (pref : List (Option OneTwo)) :
-  let σ' := succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option (2 * n + 2)))⟩)
-  σ'.state = 0 ∧
-  (σ'.tapes 0).move .left = Turing.Tape.mk₂ pref ((some .one) :: rev_dya_option n) := by
-  simp [succ_transition, Transition.step, Turing.Tape.mk₂, performTapeOps]
-
-lemma succ_step_even (n : ℕ) (pref : List (Option OneTwo)) :
-  succ_transition.step (⟨0, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option (2 * n + 2)))⟩) =
-    ⟨0, fun _ => (Turing.Tape.mk₂ pref ((some .one) :: rev_dya_option n)).move .right⟩ := by
-  simp [succ_transition, Transition.step, Turing.Tape.mk₂, performTapeOps]
-
-theorem succ_semantics (n : ℕ) (pref : List (Option OneTwo)) :
-  ∃ shift : ℕ,
-  succ_transition.step^[((n + 2).log2 + 1)] ⟨
-    0, (fun _ => Turing.Tape.mk₂ pref (rev_dya_option n))
-  ⟩ =
-  ⟨1, fun _ =>
-    (Turing.Tape.move .right)^[shift] (Turing.Tape.mk₂ pref (rev_dya_option (n + 1)))⟩ := by
-  revert pref
+lemma successor_core.transforms_tape (n : Nat) (ws : List SChar) :
+  ∃ shift < (dya n.succ).length, ∃ t, successor_core.configurations
+    (fun _ => Turing.Tape.move .left (Turing.Tape.mk₂ (dya n).coe_schar.reverse ws)) t =
+    ⟨successor_core.stopState, (fun _ => (Turing.Tape.move .right)^[shift]
+         (Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ ws)))⟩  := by
+  revert ws
   refine dyadic_induction_on n ?_ ?_ ?_
-  · intro pref
-    use 0;
-    simp [Transition.step, succ_transition, Turing.Tape.mk₂, default]
-    simp [rev_dya_option, rev_dya, dyadic_encoding_reverse]
-  · intro n ih pref
+  · intro ws
     use 0
-    rw [Function.iterate_succ_apply, succ_step_odd]
-    simp [stop_state_inert]
-  · intro n ih pref
-    rw [Function.iterate_succ_apply, succ_step_even]
-    simp only [Fin.isValue, Turing.Tape.mk₂, Turing.Tape.move_right_mk', Turing.ListBlank.head_mk,
-      List.headI_cons, Turing.ListBlank.cons_mk, Turing.ListBlank.tail_mk, List.tail_cons]
-    rw [← Turing.Tape.mk₂]
-    obtain ⟨shift, ih⟩ := ih ((some .one):: pref)
-    use shift + 1
-    rw [Nat.log2_def]
-    have hn : 2 * n + 2 + 1 = 2 * (n + 1) + 1 := by ring
-    simp_all [Turing.Tape.mk₂]
+    constructor
+    · simp [dya, dyadic_encoding]
+    · use 1
+      simp [dya, dyadic_encoding, successor_core, Turing.Tape.mk₂, TM.configurations,
+            Transition.step, Turing.Tape.mk₁, performTapeOps, List.coe_schar]
+  · intro n ih ws
+    use (dya (2 * n + 1).succ).coe_schar.length - 1
+    constructor
+    · simp [dya, dyadic_encoding_prop_two]
+    · use 1
+      unfold TM.configurations
+      simp only [Function.iterate_one, successor_core.step_odd, Turing.Tape.mk₁]
+      rw [move_right_iter_eq_move_int, ← move_int_neg_one, move_left_mk₂_move_right]
+      simp [dya, dyadic_encoding_prop_two]
+  · intro n ih ws
+    obtain ⟨shift, h_shift, t, ih⟩ := ih (( '1' :: ws))
+    use shift
+    constructor
+    · calc shift
+          < (dya n.succ).length := h_shift
+        _ ≤ (dya (2 * n + 2).succ).length := by simp [dya_odd_iter]
+    · use t + 1
+      unfold TM.configurations
+      simp only [Function.iterate_succ_apply]
+      rw [successor_core.step_even, dya_odd_tape, ← TM.configurations, ih]
+      have : (dya (2 * n + 2 + 1)).coe_schar ++ ws =
+          (dya (n + 1)).coe_schar ++ (↑'1' :: ws) := by simp [dya_odd_iter, List.coe_schar]
+      simp [this]
 
-theorem succ_in_linear_time_via_rev_dya (n : ℕ) : succ_tm.runs_in_time
-    (rev_dya n)
-    (rev_dya n.succ)
-    ((n + 2).log2 + 1) := by
-  obtain ⟨shift, hstep⟩ := succ_semantics n []
-  rw [Turing.Tape.mk₂, rev_dya_option] at hstep
-  apply TM.runs_in_time_of_inert succ_tm _ _ _
-    (by intro c h_state; simpa using succ_transition.inert c h_state)
-  simp only [TM.stops_and_outputs, Nat.reduceAdd, TM.configurations_on_input,
-    TM.initial_configuration, Fin.val_eq_zero, ↓reduceIte, Fin.zero_eta, Fin.isValue,
-    Nat.succ_eq_add_one]
-  simp only [succ_tm, Fin.isValue, Turing.Tape.mk₁, Turing.Tape.mk₂, hstep, and_true]
-  use shift, .left;
-  simp [rev_dya_option]
 
-theorem dya_succ_in_linear_time :
-    succ_tm.computes_in_o_time (rev_dya ∘ Nat.succ ∘ (Function.invFun rev_dya)) ⟨id⟩ := by
-  use ⟨fun n => 2 * n + 2⟩
-  have h_bound : ⟨fun n => 2 * n + 2⟩ ≼ ⟨id⟩ := by use 2; intro n; simp
-  simp only [h_bound, true_and]
-  intro input
-  let n := rev_dya.invFun input
-  have hn : rev_dya n = input := by
-    exact Function.rightInverse_invFun rev_dya_bijective.2 input
-  rw [← hn]
-  simp only [Function.comp_apply, Function.leftInverse_invFun rev_dya_bijective.1 n,
-    Nat.succ_eq_add_one]
-  have h_len : ((n + 2).log2 + 1) ≤ (2 * (rev_dya n).length + 2) := by
-    simp only [rev_dya_length, add_le_add_iff_right]
-    calc (n + 2).log2
-        _ ≤ (2 * n + 2).log2 := by
-          simpa [Nat.log2_eq_log_two] using (Nat.log_monotone (by linarith))
-        _ = (2 * (n + 1)).log2 := by ring_nf
-        _ = (n + 1).log2 + 1 := by simp [Nat.log2_two_mul]
-        _ ≤ 2 * (n + 1).log2 + 1 := by linarith
-  exact succ_tm.runs_in_time_monotone (rev_dya n) (rev_dya n.succ) h_len
-    (succ_in_linear_time_via_rev_dya n)
+lemma successor_core.semantics (n : Nat) (ws : List SChar) :
+  ∃ shift < (dya n.succ).length,
+  successor_core.transforms
+    (fun _ => Turing.Tape.move .left (Turing.Tape.mk₂ (dya n).coe_schar.reverse ws))
+    (fun _ => (Turing.Tape.move .right)^[shift]
+         (Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ ws))) := by
+  obtain ⟨shift, h_shift, t, h_transforms⟩ := successor_core.transforms_tape n ws
+  use shift, h_shift
+  exact TM.transforms_of_inert successor_core _ _
+    successor_core.inert_after_stop ⟨t, h_transforms⟩
 
--- Main theorem: successor is computable in linear time
-theorem succ_in_linear_time : dtime_nat id Nat.succ := by
-  use OneTwo, rev_dya
-  constructor
-  · exact rev_dya_bijective
-  · use 0, Fin 2, succ_tm
-    exact ⟨Finite.of_fintype OneTwo, Finite.of_fintype (Fin 2), dya_succ_in_linear_time⟩
+def is_separator : SChar -> Bool
+  | .sep => true
+  | _ => false
+
+def is_blank : SChar -> Bool
+  | .blank => true
+  | _ => false
+
+--- Successor Turing machine:
+--- 1-tape Turing machine that increments the first word on the first
+--- tape interpreted as a dyadic number.
+def successor :=
+  ((((move_until .right is_separator).seq
+  (Routines.move .left)).seq
+  successor_core).seq
+  (move_until .left is_blank)).seq
+  (Routines.move .right)
+
+lemma successor.semantics_string (n : Nat) (ws : List SChar) :
+  successor.transforms
+    (fun _ => Turing.Tape.mk₁ ((dya n).coe_schar ++ (.sep :: ws)))
+    (fun _ => Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ (.sep :: ws))) := by
+  let tape₀ := fun _ : Fin 1 => Turing.Tape.mk₁ ((dya n).coe_schar ++ (.sep :: ws))
+  let tape₁ := fun _ : Fin 1 => Turing.Tape.mk₂ (dya n).coe_schar.reverse (.sep :: ws)
+  let tape₂ := fun i : Fin 1 => Turing.Tape.move .left (tape₁ i)
+  let tape₃ (shift : ℕ) := fun _ : Fin 1 => (Turing.Tape.move .right)^[shift]
+         (Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ (.sep :: ws)))
+  let tape₄ := fun _ : Fin 1 => (Turing.Tape.mk₁
+                         ((dya n.succ).coe_schar ++ (.sep :: ws))).move .left
+  let tape₅ := fun _ : Fin 1 => Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ (.sep :: ws))
+  have h_dya_length_nonneg : ¬(((dya n).length : ℤ) < 0) := by simp
+  have h_tr₁ : (move_until .right is_separator).transforms tape₀ tape₁ := by
+    convert move_until.right_till_separator [] (dya n).coe_schar ws .sep ?_
+    · simp [is_separator]; split <;> simp_all
+    · rw [←Int.ofNat_eq_natCast, ←move_right_iter_eq_move_int, Tape.move_right_append]
+      simp [tape₁]
+    · exact List.coe_schar_get_neq_sep _
+  have h_tr₂ : (Routines.move .left).transforms tape₁ tape₂ := by
+    exact Routines.move.semantics (tape₁ 0) .left
+  have h_tr₃ : ∃ shift < (dya n.succ).length, successor_core.transforms tape₂ (tape₃ shift) := by
+    exact successor_core.semantics n (.sep :: ws)
+  have h_tr₄ : ∀ shift < (dya n.succ).length, (move_until .left is_blank).transforms
+      (tape₃ shift) tape₄ := by
+    intro shift h_shift
+    convert move_until.left_till_blank ((dya n.succ).coe_schar ++ (.sep :: ws)) shift ?_ ?_
+    · simp [is_blank, default]; split <;> simp_all
+    · simp only [List.length_append, List.coe_schar_length, List.length_cons]; omega
+    · intro i h_ilt
+      have h_coe_i_lt : (i : ℕ) < (dya n.succ).length := by omega
+      have : ((dya n.succ).coe_schar ++ SChar.sep :: ws).get ⟨(i : ℕ), by omega⟩ =
+          (dya n.succ).get ⟨(i : ℕ), (by omega)⟩ := by simp [List.coe_schar, h_coe_i_lt]
+      rw [this]
+      simp
+  have h_tr₅ : (Routines.move .right).transforms tape₄ tape₅ := by
+    simpa [tape₅, tape₄] using Routines.move.semantics (tape₄ 0) .right
+  unfold successor
+  obtain ⟨shift, h_shift, h_tr₃⟩ := h_tr₃
+  let h₁ := TM.seq.semantics h_tr₁ h_tr₂
+  let h₂ := TM.seq.semantics h₁ h_tr₃
+  let h₃ := TM.seq.semantics h₂ (h_tr₄ shift h_shift)
+  exact TM.seq.semantics h₃ h_tr₅
+
+theorem successor.semantics (n : Nat) (ws : List (List Char)) :
+  successor.transforms_list
+    (fun _ => (dya n) :: ws)
+    (fun _ => (dya n.succ) :: ws) := by
+  let h_sem := successor.semantics_string n (list_to_string ws)
+  unfold TM.transforms_list list_to_tape
+  unfold List.coe_schar at h_sem
+  convert h_sem <;> simp [List.coe_schar]

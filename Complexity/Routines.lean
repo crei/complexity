@@ -32,15 +32,35 @@ instance : Inhabited SChar where
 instance : Coe Char SChar where
   coe c := .ofChar c
 
-def list_to_string (ls : List (List Char)) : List SChar :=
-  (ls.map (fun w : List Char => ↑w ++ [SChar.sep])).flatten
+--- Character-by-character coercion from List Char to List SChar.
+--- If we use the built-in coercion, Lean uses filter_map instead of map.
+def List.coe_schar (x : List Char) : List SChar :=
+  x.map (fun c => SChar.ofChar c)
 
+@[simp]
+lemma List.coe_schar_length (x : List Char) :
+  x.coe_schar.length = x.length := by simp [List.coe_schar]
+
+lemma List.coe_schar_get_neq_sep (x : List Char) (n : Fin x.coe_schar.length) :
+  x.coe_schar.get n ≠ .sep := by
+  simp [List.coe_schar]
+
+lemma List.coe_schar_get_neq_blank (x : List Char) (n : Fin x.coe_schar.length) :
+  x.coe_schar.get n ≠ .blank := by
+  simp [List.coe_schar]
+
+
+def list_to_string (ls : List (List Char)) : List SChar :=
+  (ls.map (fun w : List Char => w.coe_schar ++ [SChar.sep])).flatten
+
+@[simp]
 lemma list_to_string_empty :
   list_to_string [] = [] := by
   rfl
 
+@[simp]
 lemma list_to_string_cons (w : List Char) (ws : List (List Char)) :
-  list_to_string (w :: ws) = (↑w : List SChar) ++ (SChar.sep :: list_to_string ws) := by
+  list_to_string (w :: ws) = w.coe_schar ++ (SChar.sep :: list_to_string ws) := by
   simp [list_to_string]
 
 lemma list_to_string_nonempty {w : List Char} {ws : List (List Char)} :
@@ -50,12 +70,12 @@ lemma list_to_string_nonempty {w : List Char} {ws : List (List Char)} :
 @[simp]
 lemma list_to_string_nil_cons_head (ws : List (List Char)) :
   (list_to_string ([] :: ws)).head list_to_string_nonempty = SChar.sep := by
-  simp [list_to_string]
+  simp [list_to_string, List.coe_schar]
 
 @[simp]
 lemma list_to_string_nil_cons_tail (ws : List (List Char)) :
   (list_to_string ([] :: ws)).tail = list_to_string ws := by
-  simp [list_to_string]
+  simp [list_to_string, List.coe_schar]
 
 @[simp]
 lemma list_to_string_head_nonempty
@@ -63,7 +83,7 @@ lemma list_to_string_head_nonempty
   (w : List Char)
   (ws : List (List Char)) :
   (list_to_string ((c :: w) :: ws)).head list_to_string_nonempty = ↑c := by
-  simp [list_to_string]
+  simp [list_to_string, List.coe_schar]
 
 @[simp]
 lemma list_to_string_headI_nonempty
@@ -71,7 +91,7 @@ lemma list_to_string_headI_nonempty
   (w : List Char)
   (ws : List (List Char)) :
   (list_to_string ((c :: w) :: ws)).headI = ↑c := by
-  simp [list_to_string]
+  simp [list_to_string, List.coe_schar]
 
 @[simp]
 lemma list_to_string_tail_nonempty
@@ -79,7 +99,7 @@ lemma list_to_string_tail_nonempty
   (w : List Char)
   (ws : List (List Char)) :
   (list_to_string ((c :: w) :: ws)).tail = (list_to_string (w :: ws)) := by
-  simp [list_to_string]
+  simp [list_to_string, List.coe_schar]
 
 def list_to_tape (ls : List (List Char)) : Turing.Tape SChar :=
   Turing.Tape.mk₁ (list_to_string ls)
@@ -90,8 +110,8 @@ lemma list_to_tape_nil :
 
 lemma list_to_tape_cons (w : List Char) (ws : List (List Char)) :
   list_to_tape (w :: ws) =
-    Turing.Tape.mk₁ ((↑w : List SChar) ++ (SChar.sep :: list_to_string ws)) := by
-  simp [list_to_tape, list_to_string]
+    Turing.Tape.mk₁ ((w.coe_schar) ++ (SChar.sep :: list_to_string ws)) := by
+  simp [list_to_tape, list_to_string, List.coe_schar]
 
 @[simp]
 lemma list_to_tape_nil_head :
@@ -107,8 +127,9 @@ lemma list_to_tape_head_nonempty
   (c : Char)
   (w : List Char)
   (l : List (List Char)) :
-  (list_to_tape ((c :: w) :: l)).head = ↑c := by
+  (list_to_tape ((c :: w) :: l)).head = c := by
   simp [list_to_tape_cons, Turing.Tape.mk₁, Turing.Tape.mk₂]
+  rfl
 
 def lists_to_configuration {k : ℕ} {Q : Type*} (lists : Fin k → List (List Char)) (state : Q) :
   Configuration k Q SChar :=
@@ -117,43 +138,22 @@ def lists_to_configuration {k : ℕ} {Q : Type*} (lists : Fin k → List (List C
     tapes := fun i => list_to_tape (lists i)
   }
 
-def TM.transforms {k : ℕ} {Q : Type*}
+def TM.transforms_list {k : ℕ} {Q : Type*}
   (tm : TM k Q SChar)
   (initial : Fin k → (List (List Char)))
   (final : Fin k → (List (List Char))) : Prop :=
-  let configs := fun t => tm.transition.step^[t] (lists_to_configuration initial tm.startState)
-  ∃ t, configs t = lists_to_configuration final tm.stopState ∧
-    ∀ t' < t, (configs t').state ≠ tm.stopState
+  tm.transforms (list_to_tape ∘ initial) (list_to_tape ∘ final)
 
 lemma transforms_of_inert {k : ℕ} {Q : Type*}
   (tm : TM k Q SChar)
   (initial : Fin k → (List (List Char)))
   (final : Fin k → (List (List Char)))
-  (h_inert_after_stop : ∀ conf, conf.state = tm.stopState → tm.transition.step conf = conf)
-  (h_stops_with_final : ∃ t, tm.transition.step^[t] (lists_to_configuration initial tm.startState) =
+  (h_inert_after_stop : tm.inert_after_stop)
+  (h_stops_with_final : ∃ t, tm.configurations (list_to_tape ∘ initial) t =
     lists_to_configuration final tm.stopState) :
-  tm.transforms initial final := by
-  classical
-  let conf₀ := (lists_to_configuration initial tm.startState)
-  obtain ⟨t', h_stops_with_final⟩ := h_stops_with_final
-  have h_stops_at_t' : (tm.transition.step^[t'] conf₀).state = tm.stopState := by
-    rw [h_stops_with_final]
-    dsimp [lists_to_configuration]
-  have h_stops : ∃ t, (tm.transition.step^[t] conf₀).state = tm.stopState := ⟨t', h_stops_at_t'⟩
-  let t := Nat.find h_stops
-  let h_spec := Nat.find_spec h_stops
-  let h_min := fun t => Nat.find_min (m := t) h_stops
-  use t
-  have h_t_le : t ≤ t' := by
-    by_contra
-    exact h_min t' (by omega) h_stops_at_t'
-  constructor
-  · calc (fun t => tm.transition.step^[t] conf₀) t
-      _ = tm.transition.step^[t] conf₀ := by rfl
-      _ = tm.transition.step^[t'] conf₀ :=
-          inert_perpetually tm h_inert_after_stop conf₀ t t' h_stops_at_t' h_spec
-      _ = lists_to_configuration final tm.stopState := h_stops_with_final
-  · exact h_min
+  tm.transforms_list initial final :=
+  TM.transforms_of_inert tm (list_to_tape ∘ initial) (list_to_tape ∘ final)
+    h_inert_after_stop h_stops_with_final
 
 --- Prepend a new empty word to the first tape.
 def cons_empty :
@@ -178,13 +178,13 @@ lemma cons_empty_two_steps (ws : List (List Char)) :
     lists_to_configuration (fun _ => [] :: ws) 2 := by
   cases ws with
   | nil => simp [lists_to_configuration, list_to_tape_nil, list_to_tape_cons, cons_empty,
-                Transition.step, list_to_string]
+                Transition.step, list_to_string, List.coe_schar]
   | cons w ws =>
     cases w <;> simp [lists_to_configuration, list_to_tape_cons, cons_empty,
-                      Transition.step, list_to_string_cons]
+                      Transition.step, list_to_string_cons, List.coe_schar]
 
 theorem cons_empty_semantics (ws : List (List Char)) :
-  cons_empty.transforms (fun _ => ws) (fun _ => [] :: ws) := by
+  cons_empty.transforms_list (fun _ => ws) (fun _ => [] :: ws) := by
   exact transforms_of_inert cons_empty _ _
     cons_empty_inert_after_stop
     ⟨2, cons_empty_two_steps ws⟩
@@ -210,10 +210,10 @@ lemma cons_char_inert_after_stop
 lemma cons_char_two_steps (c : Char) (w : List Char) (ws : List (List Char)) :
   (cons_char c).transition.step^[2] (lists_to_configuration (fun _ => w :: ws) 0) =
     lists_to_configuration (fun _ => (c :: w) :: ws) 2 := by
-  cases w <;> simp [lists_to_configuration, list_to_tape_cons, cons_char, Transition.step]
+  cases w <;> simp [lists_to_configuration, list_to_tape_cons, cons_char, Transition.step] <;> rfl
 
 theorem cons_char_semantics (c : Char) (w : List Char) (ws : List (List Char)) :
-  (cons_char c).transforms (fun _ => w :: ws) (fun _ => ((c :: w) :: ws)) := by
+  (cons_char c).transforms_list (fun _ => w :: ws) (fun _ => ((c :: w) :: ws)) := by
   exact transforms_of_inert (cons_char c) _ _
     (cons_char_inert_after_stop c)
     ⟨2, cons_char_two_steps c w ws⟩
