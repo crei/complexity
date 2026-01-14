@@ -106,23 +106,29 @@ theorem move_until.left_till_blank {Γ} [Inhabited Γ] [DecidableEq Γ]
   (l : List Γ)
   (n : ℕ)
   (h_nlt : n < l.length)
-  (h_non_blank : ∀ i : Fin l.length, i < n → l.get i ≠ default) :
+  (h_non_blank : ∀ i : Fin l.length, i ≤ n → l.get i ≠ default) :
   (move_until .left (fun c => c = default)).transforms
     (fun _ => (Turing.Tape.move .right)^[n] (Turing.Tape.mk₁ l))
     (fun _ => (Turing.Tape.mk₁ l).move .left) := by
-  sorry
-  -- let tape := Turing.Tape.mk₂ (l₁ ++ (sep :: l₂)) r
-  -- have h_stop : ∃ n : ℕ, (fun c => decide (c = sep)) (tape.nth (-n)) := by
-  --   use l₁.length
-  --   simp [tape]
-  -- convert move_until.left_semantics tape (fun c => c = sep) h_stop
-  -- rw [(Nat.find_eq_iff h_stop (m := l₁.length)).mpr]
-  -- constructor
-  -- · simp [tape]
-  -- · intro n h_nlt
-  --   have : tape.nth n = List.get r₁ ⟨n, (by omega)⟩ := by
-  --     simp [tape]
-  --     have : ¬((n : ℤ) < 0) := by omega
-  --     simp [this, List.getElem?_append, h_nlt]
-  --   rw [this]
-  --   simpa using h_sep ⟨n, (by omega)⟩
+  let tape := Turing.Tape.mk₁ l
+  let condition := (fun c : Γ ↦ decide (c = default))
+  have h_stop : ∃ i : ℕ, condition (((Turing.Tape.move .right)^[n] tape).nth (-i)) := by
+    use n + 1
+    simp [condition, move_right_iter_eq_move_int, tape, Turing.Tape.mk₁]
+  convert move_until.left_semantics
+    ((Turing.Tape.move .right)^[n] (Turing.Tape.mk₁ l))
+    (fun c => c = default)
+    h_stop
+  have h_stop_eq : Nat.find h_stop = n + 1 := by
+    apply (Nat.find_eq_iff h_stop (m := n + 1)).mpr
+    simp only [tape, move_right_iter_eq_move_int, move_int_nth, Turing.Tape.mk₁, condition]
+    constructor
+    · simp
+    · intro n' h_n'lt
+      have h_n'_le_n: n' ≤ n := by omega
+      have h_neg_n'_add_n: (-(n': ℤ) + (n : ℤ)).toNat = n - n' := by omega
+      have h_n_sub_n'_lt_length : n - n' < l.length := by omega
+      simpa [h_neg_n'_add_n, h_n'_le_n, h_n_sub_n'_lt_length] using
+        h_non_blank ⟨n - n', by omega⟩ (by simp)
+  rw [h_stop_eq]
+  simp [move_right_iter_eq_move_int, Turing.Tape.mk₁, ←move_int_neg_one]
