@@ -53,12 +53,14 @@ lemma List.coe_schar_get_neq_blank (x : List Char) (n : Fin x.coe_schar.length) 
 def list_to_string (ls : List (List Char)) : List SChar :=
   (ls.map (fun w : List Char => w.coe_schar ++ [SChar.sep])).flatten
 
+@[simp]
 lemma list_to_string_empty :
   list_to_string [] = [] := by
   rfl
 
+@[simp]
 lemma list_to_string_cons (w : List Char) (ws : List (List Char)) :
-  list_to_string (w :: ws) = (w.coe_schar : List SChar) ++ (SChar.sep :: list_to_string ws) := by
+  list_to_string (w :: ws) = w.coe_schar ++ (SChar.sep :: list_to_string ws) := by
   simp [list_to_string]
 
 lemma list_to_string_nonempty {w : List Char} {ws : List (List Char)} :
@@ -140,9 +142,7 @@ def TM.transforms_list {k : ℕ} {Q : Type*}
   (tm : TM k Q SChar)
   (initial : Fin k → (List (List Char)))
   (final : Fin k → (List (List Char))) : Prop :=
-  let configs := fun t => tm.transition.step^[t] (lists_to_configuration initial tm.startState)
-  ∃ t, configs t = lists_to_configuration final tm.stopState ∧
-    ∀ t' < t, (configs t').state ≠ tm.stopState
+  tm.transforms (list_to_tape ∘ initial) (list_to_tape ∘ final)
 
 lemma transforms_of_inert {k : ℕ} {Q : Type*}
   (tm : TM k Q SChar)

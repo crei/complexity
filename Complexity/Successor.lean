@@ -152,7 +152,7 @@ def successor :=
   (move_until .left is_blank)).seq
   (Routines.move .right)
 
-lemma successor.semantics' (n : Nat) (ws : List SChar) :
+lemma successor.semantics_string (n : Nat) (ws : List SChar) :
   successor.transforms
     (fun _ => Turing.Tape.mk₁ ((dya n).coe_schar ++ (.sep :: ws)))
     (fun _ => Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ (.sep :: ws))) := by
@@ -196,23 +196,11 @@ lemma successor.semantics' (n : Nat) (ws : List SChar) :
   let h₃ := TM.seq.semantics h₂ (h_tr₄ shift h_shift)
   exact TM.seq.semantics h₃ h_tr₅
 
-
--- theorem successor.semantics (n : Nat) (ws : List (List Char)) :
---   successor.transforms_list
---     (fun _ => (dya n) :: ws)
---     (fun _ => (dya n.succ) :: ws) := by
---   let tape₀ := list_to_tape ((dya n) :: ws)
---   let tape₁ := Turing.Tape.mk₁
---   have h1 (ws : List SChar) : (move_until .right is_separator).transforms
---     (fun _ => Turing.Tape.mk₁ ((dya n).coe_schar ++ (.sep :: ws)))
---     (fun _ => Turing.Tape.move_int
---       (Turing.Tape.mk₁ ((dya n).coe_schar ++ ['sep'] ++ ws.concat)) (dya n).length) := by
---     apply move_until.right_semantics
---     · simp [is_separator, dya]
---     · use (dya n).length
---       simp [dya]
---   let tm := successor
-
-
-
---   sorry
+theorem successor.semantics (n : Nat) (ws : List (List Char)) :
+  successor.transforms_list
+    (fun _ => (dya n) :: ws)
+    (fun _ => (dya n.succ) :: ws) := by
+  let h_sem := successor.semantics_string n (list_to_string ws)
+  unfold TM.transforms_list list_to_tape
+  unfold List.coe_schar at h_sem
+  convert h_sem <;> simp [List.coe_schar]
