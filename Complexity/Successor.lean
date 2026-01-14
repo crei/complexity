@@ -159,6 +159,10 @@ lemma successor.semantics' (n : Nat) (ws : List SChar) :
   let tape₀ := fun _ : Fin 1 => Turing.Tape.mk₁ ((dya n).coe_schar ++ (.sep :: ws))
   let tape₁ := fun _ : Fin 1 => Turing.Tape.mk₂ (dya n).coe_schar.reverse (.sep :: ws)
   let tape₂ := fun i : Fin 1 => Turing.Tape.move .left (tape₁ i)
+  let tape₃ (shift : ℕ) := fun _ : Fin 1 => (Turing.Tape.move .right)^[shift]
+         (Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ (.sep :: ws)))
+  let tape₄ := fun _ : Fin 1 => Turing.Tape.mk₁ (.blank :: ((dya n.succ).coe_schar ++ (.sep :: ws)))
+  let tape₅ := fun _ : Fin 1 => Turing.Tape.mk₁ ((dya n.succ).coe_schar ++ (.sep :: ws))
   have h_dya_length_nonneg : ¬(((dya n).length : ℤ) < 0) := by simp
   have h_tr₁ : (move_until .right is_separator).transforms tape₀ tape₁ := by
     convert move_until.right_till_separator [] (dya n).coe_schar ws .sep ?_
@@ -166,6 +170,10 @@ lemma successor.semantics' (n : Nat) (ws : List SChar) :
     · rw [←Int.ofNat_eq_natCast, ←move_right_iter_eq_move_int, Tape.move_right_append]
       simp [tape₁]
     · exact List.coe_schar_get_neq_sep _
+  have h_tr₂ : (Routines.move .left).transforms tape₁ tape₂ := by
+    exact Routines.move.semantics (tape₁ 0) .left
+  have h_tr₃ : ∃ shift < (dya n.succ).length, successor_core.transforms tape₂ (tape₃ shift) := by
+    sorry
   sorry
 
 
