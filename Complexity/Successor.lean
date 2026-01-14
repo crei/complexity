@@ -189,7 +189,12 @@ lemma successor.semantics' (n : Nat) (ws : List SChar) :
       simp
   have h_tr₅ : (Routines.move .right).transforms tape₄ tape₅ := by
     simpa [tape₅, tape₄] using Routines.move.semantics (tape₄ 0) .right
-  sorry
+  unfold successor
+  obtain ⟨shift, h_shift, h_tr₃⟩ := h_tr₃
+  let h₁ := TM.seq.semantics _ _ tape₀ tape₁ tape₂ h_tr₁ h_tr₂
+  let h₂ := TM.seq.semantics _ _ tape₀ tape₂ (tape₃ shift) h₁ h_tr₃
+  let h₃ := TM.seq.semantics _ _ tape₀ (tape₃ shift) tape₄ h₂ (h_tr₄ shift h_shift)
+  exact TM.seq.semantics _ _ tape₀ tape₄ tape₅ h₃ h_tr₅
 
 
 -- theorem successor.semantics (n : Nat) (ws : List (List Char)) :
