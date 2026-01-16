@@ -100,6 +100,12 @@ lemma Tape.write_left_mk₁ {Γ} [Inhabited Γ]
   simp [Turing.Tape.mk₁, Turing.Tape.mk₂]
 
 @[simp]
+lemma Turing.ListBlank.mk_default {Γ} [Inhabited Γ] :
+  (Turing.ListBlank.mk [(default : Γ)]) = Turing.ListBlank.mk [] := by
+  ext i
+  simp [List.getI]
+
+@[simp]
 lemma Tape.mk₁_default {Γ} [Inhabited Γ] :
   (Turing.Tape.mk₁ [(default : Γ)]) = Turing.Tape.mk₁ [] := by rfl
 
@@ -128,3 +134,13 @@ theorem Tape.left₀_nth {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) (n : ℕ) :
     simp only [Turing.Tape.nth, Turing.Tape.left₀, Turing.ListBlank.nth_succ,
       Turing.ListBlank.tail_cons]
     rfl
+
+@[simp]
+lemma Tape.move_right_blank {Γ} [Inhabited Γ] (l : List Γ) :
+  Turing.Tape.move .right (Turing.Tape.mk₁ (default :: l)) = Turing.Tape.mk₁ l := by
+  simp [Turing.Tape.mk₁, Turing.Tape.mk₂]
+
+@[simp]
+lemma Tape.move_left_cons {Γ} [Inhabited Γ] {c : Γ} {l₁ l₂ : List Γ} :
+  Turing.Tape.move .left (.mk₂ (c :: l₁) l₂) = .mk₂ l₁ (c :: l₂) := by
+  simp [Turing.Tape.mk₂]
