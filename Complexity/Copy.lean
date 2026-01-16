@@ -69,16 +69,25 @@ lemma copy_core.inert_after_stop : copy_core.inert_after_stop := by
   intro conf h_is_stopped
   ext <;> simp_all [Transition.step, performTapeOps, copy_core]
 
-
 lemma copy_core.semantics (l ws₁ ws₂ : List SChar) (h_neq_blank : ∀ i, l.get i ≠ .blank) :
   copy_core.transforms
-    [Turing.Tape.mk₂ l.reverse (.sep :: ws₁), (Turing.Tape.mk₁ ws₂).move .left].get
-    [Turing.Tape.mk₁ (l ++ (.sep :: ws₁)), Turing.Tape.mk₁ (l ++ (.sep :: ws₂))].get := by
+    [Turing.Tape.mk₂ l (.sep :: ws₁), (Turing.Tape.mk₁ ws₂).move .left].get
+    [Turing.Tape.mk₁ (l.reverse ++ (.sep :: ws₁)),
+     Turing.Tape.mk₁ (l.reverse ++ (.sep :: ws₂))].get := by
   refine TM.transforms_of_inert copy_core _ _ copy_core.inert_after_stop ?_
   use l.length.succ.succ
-  let r := copy_core.configurations (.sep :: l) ws₁ ws₂ (by sorry)
-  convert r
-  sorry
+  have : Turing.Tape.mk₂ l (.sep :: ws₁) = (Turing.Tape.mk₂ (.sep :: l) ws₁).move .left := by simp
+  rw [this]
+  have : l.length.succ.succ = (.sep ::l).length.succ := by simp
+  rw [this]
+  have h_not_blank : ∀ i : Fin l.length.succ, (SChar.sep :: l)[i] ≠ SChar.blank := by
+    intro i
+    refine Fin.induction ?_ ?_ i
+    · simp
+    · intro i ih; simpa using (h_neq_blank i)
+  rw [copy_core.configurations (.sep :: l) ws₁ ws₂ h_not_blank]
+  simp [copy_core]
+  grind
 
 -- def copy :=
 --   (((move_until .right (fun c => (c = SChar.sep))).seq
