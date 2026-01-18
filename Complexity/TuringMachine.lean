@@ -13,12 +13,15 @@ structure TM (k : ℕ) Q Γ [Inhabited Γ] where
   startState : Q
   stopState : Q
 
+--- Extend a transition function to work with more tapes
+--- (and do nothing on the new tapes).
 def Transition.extend {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q} {Γ}
     (σ : Transition k₁ Q Γ) : Transition k₂ Q Γ :=
   fun state symbols =>
     let (next_state, ops) := σ state (fun i => symbols ⟨i, by omega⟩)
     (next_state, fun i => if h : i < k₁ then (ops ⟨i, h⟩) else (symbols i, none))
 
+--- Extend a Turing machine to work with more tapes.
 def TM.extend {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q} {Γ} [Inhabited Γ]
     (tm : TM k₁ Q Γ) : TM k₂ Q Γ :=
   TM.mk (tm.transition.extend h_le) tm.startState tm.stopState
@@ -28,14 +31,10 @@ structure Configuration (k : Nat) S Γ [Inhabited Γ] where
   state : S
   tapes : Fin k → Turing.Tape Γ
 
+--- Restrict a configuration to fewer tapes, i.e. remove the excess tapes.
 def Configuration.restrict {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ} [Inhabited Γ]
   (conf : Configuration k₂ Q Γ) : Configuration k₁ Q Γ :=
   ⟨conf.state, fun i => conf.tapes ⟨i, by omega⟩⟩
-
-@[simp]
-lemma Configuration.restrict_state {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) Q Γ [Inhabited Γ]
-  (conf : Configuration k₂ Q Γ) : (conf.restrict h_le).state = conf.state := by
-  rfl
 
 def performTapeOps {Γ} [Inhabited Γ]
   (tape : Turing.Tape Γ) (symbol : Γ) (move : Option Turing.Dir) : Turing.Tape Γ :=
@@ -160,6 +159,12 @@ def TM.transforms {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ]
   (tm : TM k Q Γ) (tapes₀ tapes₁ : Fin k → Turing.Tape Γ) :=
   ∃ t, tm.transforms_in_exact_time tapes₀ tapes₁ t
+
+def TM.eval {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (tm : TM k Q Γ) (tapes : Fin k → Turing.Tape Γ) : Part (Fin k → Turing.Tape Γ) :=
+  (PartENat.find (fun t => (tm.configurations tapes t).state = tm.stopState)).map
+    fun t => (tm.configurations tapes t).tapes
 
 lemma TM.transforms_unique {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
   (tm : TM k Q Γ)
@@ -288,8 +293,54 @@ lemma Transition.extend_step_tape_second {Q Γ} [Inhabited Γ]
   unfold Transition.extend
   simp [Transition.step, h_i_le]
 
+@[simp]
+lemma Transition.extend_step {Q Γ} [Inhabited Γ]
+  {k₁ k₂ : ℕ}
+  {h_le : k₁ ≤ k₂}
+  {σ : Transition k₁ Q Γ}
+  {conf : Configuration k₂ Q Γ} :
+  (σ.extend h_le).step conf =
+    ⟨
+      (σ.step (conf.restrict h_le)).state,
+      fun i => if h : i < k₁ then
+        (σ.step (conf.restrict h_le)).tapes ⟨i, h⟩
+      else
+        conf.tapes i
+    ⟩ := by
+  ext1
+  · simp
+  · ext i
+    by_cases h_lt : (i : ℕ) < k₁ <;>
+    simp [h_lt]
+
+@[simp]
+lemma Transition.extend_step_iter {Q Γ} [Inhabited Γ]
+  {k₁ k₂ : ℕ}
+  {h_le : k₁ ≤ k₂}
+  {σ : Transition k₁ Q Γ}
+  {conf : Configuration k₂ Q Γ}
+  (t : ℕ) :
+  (σ.extend h_le).step^[t] conf = ⟨
+    (σ.step^[t] (conf.restrict h_le)).state,
+    fun i => if h : i < k₁ then
+      (σ.step^[t] (conf.restrict h_le)).tapes ⟨i, h⟩
+    else
+      conf.tapes i
+    ⟩ := by
+  induction t generalizing conf with
+  | zero => simp [Configuration.restrict]
+  | succ n ih =>
+    rw [Function.iterate_succ_apply, ih]
+    ext1
+    · simp [Configuration.restrict]
+    · ext i
+      by_cases h_lt : (i : ℕ) < k₁ <;>
+      simp [h_lt, Configuration.restrict]
+
+
+@[simp]
 lemma TM.extends_inert_after_stop {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ} [Inhabited Γ]
-  (tm : TM k₁ Q Γ)
+  {tm : TM k₁ Q Γ}
   (h_inert : tm.inert_after_stop) :
   (tm.extend h_le).inert_after_stop := by
   intro conf h_is_stop
@@ -297,17 +348,34 @@ lemma TM.extends_inert_after_stop {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ
     simpa [Configuration.restrict] using h_is_stop
   let h_restrict_inert := h_inert (conf.restrict h_le) h_restricted_is_stop
   ext1
-  · simp [TM.extend, h_restrict_inert]
+  · simp [TM.extend, h_restrict_inert]; rfl
   · ext i
     by_cases h_lt : (i : ℕ) < k₁ <;>
     simp [TM.extend, h_lt, h_restrict_inert]
     rfl
 
--- lemma TM.extend_transforms_of_inert {k₁ k₂ : ℕ} (h_lt : k₁ < k₂) {Q Γ}
---   [Inhabited Γ] [DecidableEq Γ]
---   (tm : TM k₁ Q Γ)
---   (tapes₀ tapes₁ : Fin k → Turing.Tape Γ)
---   (h_transforms: tm.transforms tapes₀ tapes₁)
+lemma TM.extends_transforms {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ} [Inhabited Γ] [DecidableEq Γ]
+  {tm : TM k₁ Q Γ}
+  {tapes₀ tapes₁ : Fin k₁ → Turing.Tape Γ}
+  {h_transforms : tm.transforms tapes₀ tapes₁}
+  {tapes' : Fin k₂ → Turing.Tape Γ}
+  (h_tape_eq : ∀ i : Fin k₂, (h : i < k₁) → tapes' i = tapes₀ ⟨i, by omega⟩) :
+  (tm.extend h_le).transforms
+    tapes'
+    fun i => if h : i < k₁ then tapes₁ ⟨i, h⟩ else tapes' i := by
+  obtain ⟨t, h_transforms⟩ := h_transforms
+  use t
+  have h_conf : (Configuration.mk tm.startState tapes').restrict h_le =
+      Configuration.mk tm.startState tapes₀ := by
+    simp [Configuration.restrict, h_tape_eq]
+  constructor
+  · let h_transforms := h_transforms.1
+    unfold TM.configurations at h_transforms
+    simp [TM.configurations, TM.extend, h_conf, h_transforms]
+  · intro t' h_t'_lt
+    let h_transforms := h_transforms.2 t' h_t'_lt
+    unfold TM.configurations at h_transforms
+    simp [TM.configurations, TM.extend, h_conf, h_transforms]
 
 def TM.initial_configuration {k : Nat} {S} {Γ}
   (tm : TM k S (Option Γ)) (input : List Γ) : Configuration k S (Option Γ) :=
