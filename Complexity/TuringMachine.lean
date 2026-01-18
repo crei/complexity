@@ -354,6 +354,7 @@ lemma TM.extends_inert_after_stop {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ
     simp [TM.extend, h_lt, h_restrict_inert]
     rfl
 
+@[simp]
 lemma TM.extends_transforms {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ} [Inhabited Γ] [DecidableEq Γ]
   {tm : TM k₁ Q Γ}
   {tapes₀ tapes₁ : Fin k₁ → Turing.Tape Γ}
@@ -376,6 +377,17 @@ lemma TM.extends_transforms {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ} [Inh
     let h_transforms := h_transforms.2 t' h_t'_lt
     unfold TM.configurations at h_transforms
     simp [TM.configurations, TM.extend, h_conf, h_transforms]
+
+@[simp]
+lemma TM.extends_eval {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂)
+  {Q Γ} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  {tm : TM k₁ Q Γ}
+  {tapes : Fin k₂ → Turing.Tape Γ} :
+  (tm.extend h_le).eval tapes =
+    (tm.eval (fun i => tapes ⟨i, by omega⟩)).map (fun tapes' =>
+      fun i : Fin k₂ => if h : i < k₁ then tapes' ⟨i, h⟩ else tapes i) := by
+  simp [TM.extend, TM.eval, TM.configurations]
+  rfl
 
 def TM.initial_configuration {k : Nat} {S} {Γ}
   (tm : TM k S (Option Γ)) (input : List Γ) : Configuration k S (Option Γ) :=
