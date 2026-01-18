@@ -224,38 +224,6 @@ lemma TM.transforms_of_inert {k : ℕ} {Q Γ : Type*}
       rw [h_stops_with_tapes₁]
     exact absurd (h_stops_at_t) (Nat.find_min h_stops h_gt)
 
--- def Configuration.append {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
---   (conf : Configuration k₁ S Γ)
---   (tapes : Fin k₂ → Turing.Tape Γ) : Configuration (k₁ + k₂) S Γ :=
---   Configuration.mk conf.state ((Vector.ofFn conf.tapes) ++ (Vector.ofFn tapes)).get
-
--- @[simp]
--- lemma Configuration.append_state {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
---   (conf : Configuration k₁ S Γ)
---   (tapes : Fin k₂ → Turing.Tape Γ) :
---   (conf.append tapes).state = conf.state := by rfl
-
--- @[simp]
--- lemma Configuration.append_tapes_first {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
---   (conf : Configuration k₁ S Γ)
---   (tapes : Fin k₂ → Turing.Tape Γ)
---   (i : Fin (k₁ + k₂))
---   (h_i_lt : i < k₁) :
---   (conf.append tapes).tapes i = conf.tapes ⟨i, by omega⟩ := by
---   unfold Configuration.append Vector.get
---   simp [h_i_lt]
-
--- @[simp]
--- lemma Configuration.append_tapes_second {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
---   (conf : Configuration k₁ S Γ)
---   (tapes : Fin k₂ → Turing.Tape Γ)
---   (i : Fin (k₁ + k₂))
---   (h_i_lt : ¬(i < k₁)) :
---   (conf.append tapes).tapes i = tapes ⟨i.val - k₁, by omega⟩ := by
---   unfold Configuration.append Vector.get
---   have : i ≥ k₁ := by omega
---   simp [this]
-
 @[simp]
 lemma Transition.extend_step_state {Q Γ} [Inhabited Γ]
   {k₁ k₂ : ℕ}
