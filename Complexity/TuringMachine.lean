@@ -28,9 +28,14 @@ structure Configuration (k : Nat) S Γ [Inhabited Γ] where
   state : S
   tapes : Fin k → Turing.Tape Γ
 
-def Configuration.restrict {k₁ k₂ : ℕ} (h_lt : k₁ < k₂) Q Γ [Inhabited Γ]
+def Configuration.restrict {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ} [Inhabited Γ]
   (conf : Configuration k₂ Q Γ) : Configuration k₁ Q Γ :=
   ⟨conf.state, fun i => conf.tapes ⟨i, by omega⟩⟩
+
+@[simp]
+lemma Configuration.restrict_state {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) Q Γ [Inhabited Γ]
+  (conf : Configuration k₂ Q Γ) : (conf.restrict h_le).state = conf.state := by
+  rfl
 
 def performTapeOps {Γ} [Inhabited Γ]
   (tape : Turing.Tape Γ) (symbol : Γ) (move : Option Turing.Dir) : Turing.Tape Γ :=
@@ -214,78 +219,89 @@ lemma TM.transforms_of_inert {k : ℕ} {Q Γ : Type*}
       rw [h_stops_with_tapes₁]
     exact absurd (h_stops_at_t) (Nat.find_min h_stops h_gt)
 
-def Configuration.append {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
-  (conf : Configuration k₁ S Γ)
-  (tapes : Fin k₂ → Turing.Tape Γ) : Configuration (k₁ + k₂) S Γ :=
-  Configuration.mk conf.state ((Vector.ofFn conf.tapes) ++ (Vector.ofFn tapes)).get
+-- def Configuration.append {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
+--   (conf : Configuration k₁ S Γ)
+--   (tapes : Fin k₂ → Turing.Tape Γ) : Configuration (k₁ + k₂) S Γ :=
+--   Configuration.mk conf.state ((Vector.ofFn conf.tapes) ++ (Vector.ofFn tapes)).get
+
+-- @[simp]
+-- lemma Configuration.append_state {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
+--   (conf : Configuration k₁ S Γ)
+--   (tapes : Fin k₂ → Turing.Tape Γ) :
+--   (conf.append tapes).state = conf.state := by rfl
+
+-- @[simp]
+-- lemma Configuration.append_tapes_first {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
+--   (conf : Configuration k₁ S Γ)
+--   (tapes : Fin k₂ → Turing.Tape Γ)
+--   (i : Fin (k₁ + k₂))
+--   (h_i_lt : i < k₁) :
+--   (conf.append tapes).tapes i = conf.tapes ⟨i, by omega⟩ := by
+--   unfold Configuration.append Vector.get
+--   simp [h_i_lt]
+
+-- @[simp]
+-- lemma Configuration.append_tapes_second {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
+--   (conf : Configuration k₁ S Γ)
+--   (tapes : Fin k₂ → Turing.Tape Γ)
+--   (i : Fin (k₁ + k₂))
+--   (h_i_lt : ¬(i < k₁)) :
+--   (conf.append tapes).tapes i = tapes ⟨i.val - k₁, by omega⟩ := by
+--   unfold Configuration.append Vector.get
+--   have : i ≥ k₁ := by omega
+--   simp [this]
 
 @[simp]
-lemma Configuration.append_state {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
-  (conf : Configuration k₁ S Γ)
-  (tapes : Fin k₂ → Turing.Tape Γ) :
-  (conf.append tapes).state = conf.state := by rfl
-
-@[simp]
-lemma Configuration.append_tapes_first {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
-  (conf : Configuration k₁ S Γ)
-  (tapes : Fin k₂ → Turing.Tape Γ)
-  (i : Fin (k₁ + k₂))
-  (h_i_lt : i < k₁) :
-  (conf.append tapes).tapes i = conf.tapes ⟨i, by omega⟩ := by
-  unfold Configuration.append Vector.get
-  simp [h_i_lt]
-
-@[simp]
-lemma Configuration.append_tapes_second {k₁ k₂ : ℕ} {S Γ} [Inhabited Γ]
-  (conf : Configuration k₁ S Γ)
-  (tapes : Fin k₂ → Turing.Tape Γ)
-  (i : Fin (k₁ + k₂))
-  (h_i_lt : ¬(i < k₁)) :
-  (conf.append tapes).tapes i = tapes ⟨i.val - k₁, by omega⟩ := by
-  unfold Configuration.append Vector.get
-  have : i ≥ k₁ := by omega
-  simp [this]
-
-@[simp]
-lemma Transition.extend_step {Q Γ} [Inhabited Γ]
+lemma Transition.extend_step_state {Q Γ} [Inhabited Γ]
   {k₁ k₂ : ℕ}
+  {h_le : k₁ ≤ k₂}
   (σ : Transition k₁ Q Γ)
-  (conf₁ conf₂ : Configuration k₁ Q Γ)
-  (tapes : Fin k₂ → Turing.Tape Γ)
-  (h_step : σ.step conf₁ = conf₂) :
-  (σ.extend (by simp)).step (conf₁.append tapes) = conf₂.append tapes := by
+  (conf : Configuration k₂ Q Γ) :
+  ((σ.extend h_le).step conf).state = (σ.step (conf.restrict h_le)).state := by
   unfold Transition.extend
-  ext1
-  · have h_step_state : (σ.step conf₁).state = conf₂.state := by simp [h_step]
-    unfold Transition.step at h_step_state
-    simp [Transition.step, h_step_state]
-  · ext i
-    by_cases h_i_lt : i < k₁
-    · have h_step_tape : (σ.step conf₁).tapes ⟨i, by omega⟩ =
-        conf₂.tapes ⟨i, by omega⟩ := by simp [h_step]
-      simpa [h_i_lt, h_step_tape, Transition.step] using h_step_tape
-    · simp [h_i_lt, Transition.step]
+  simp [Transition.step]
+  rfl
 
-lemma TM.extends_inert_after_stop {k₁ k₂ : ℕ} (h_lt : k₁ ≤ k₂) {Q Γ} [Inhabited Γ]
+@[simp]
+lemma Transition.extend_step_tape_first {Q Γ} [Inhabited Γ]
+  {k₁ k₂ : ℕ}
+  {h_le : k₁ ≤ k₂}
+  {σ : Transition k₁ Q Γ}
+  {conf : Configuration k₂ Q Γ}
+  {i : Fin k₂}
+  (h_i_le : i < k₁) :
+  ((σ.extend h_le).step conf).tapes i =
+    (σ.step (conf.restrict h_le)).tapes ⟨i, by omega⟩ := by
+  unfold Transition.extend
+  simp [Transition.step, h_i_le]
+  rfl
+
+@[simp]
+lemma Transition.extend_step_tape_second {Q Γ} [Inhabited Γ]
+  {k₁ k₂ : ℕ}
+  {h_le : k₁ ≤ k₂}
+  {σ : Transition k₁ Q Γ}
+  {conf : Configuration k₂ Q Γ}
+  {i : Fin k₂}
+  (h_i_le : ¬(i < k₁)) :
+  ((σ.extend h_le).step conf).tapes i = conf.tapes ⟨i, by omega⟩ := by
+  unfold Transition.extend
+  simp [Transition.step, h_i_le]
+
+lemma TM.extends_inert_after_stop {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ} [Inhabited Γ]
   (tm : TM k₁ Q Γ)
   (h_inert : tm.inert_after_stop) :
-  (tm.extend h_lt).inert_after_stop := by
+  (tm.extend h_le).inert_after_stop := by
   intro conf h_is_stop
-  unfold TM.extend
-  dsimp
-  unfold TM.inert_after_stop at h_inert
-
-  let conf' : Configuration k₁ _ _ := ⟨conf.state, (fun i => conf.tapes ⟨i, by omega⟩)⟩
-  specialize h_inert conf' (by sorry)
-  unfold TM.extend Transition.extend
-  ext
-  · simp [Transition.step, performTapeOps, h_inert, TM.inert_after_stop]; sorry
-  · sorry
-  split
-
-  grind
-
-  sorry
+  have h_restricted_is_stop : (conf.restrict h_le).state = tm.stopState := by
+    simpa [Configuration.restrict] using h_is_stop
+  let h_restrict_inert := h_inert (conf.restrict h_le) h_restricted_is_stop
+  ext1
+  · simp [TM.extend, h_restrict_inert]
+  · ext i
+    by_cases h_lt : (i : ℕ) < k₁ <;>
+    simp [TM.extend, h_lt, h_restrict_inert]
+    rfl
 
 -- lemma TM.extend_transforms_of_inert {k₁ k₂ : ℕ} (h_lt : k₁ < k₂) {Q Γ}
 --   [Inhabited Γ] [DecidableEq Γ]
