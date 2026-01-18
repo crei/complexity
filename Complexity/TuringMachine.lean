@@ -151,6 +151,28 @@ def TM.transforms {k : ℕ} {Q Γ : Type*}
   (tm : TM k Q Γ) (tapes₀ tapes₁ : Fin k → Turing.Tape Γ) :=
   ∃ t, tm.transforms_in_exact_time tapes₀ tapes₁ t
 
+lemma TM.eval_of_transforms {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (tm : TM k Q Γ) (tapes₀ tapes₁ : Fin k → Turing.Tape Γ)
+  (h_transforms : tm.transforms tapes₀ tapes₁) :
+  tm.eval tapes₀ = tapes₁ := by
+  obtain ⟨t, h_eq, h_min⟩ := h_transforms
+  simp only [Part.coe_some, Part.eq_some_iff]
+  use ⟨t, by simp [h_eq]⟩
+  have h_find_eq_t := TM.transforms_t_eq_find tm tapes₀ tapes₁ t ⟨h_eq, h_min⟩
+  simp [eval, h_find_eq_t, h_eq]
+
+lemma TM.transforms_of_eval {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (tm : TM k Q Γ) (tapes₀ tapes₁ : Fin k → Turing.Tape Γ)
+  (h_eval : tm.eval tapes₀ = tapes₁) :
+  tm.transforms tapes₀ tapes₁ := by
+  simp only [Part.coe_some, Part.eq_some_iff] at h_eval
+  obtain ⟨⟨t', h_stops⟩, h_tapes⟩ := h_eval
+  have h_exists : ∃ t', (tm.configurations tapes₀ t').state = tm.stopState := ⟨t', h_stops⟩
+  use Nat.find h_exists
+  simpa [←h_tapes] using transforms_in_exact_time_of_find tm tapes₀ h_exists
+
 lemma TM.transforms_unique {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
   (tm : TM k Q Γ)
   (tapes₀ tapes₁ tapes₂ : Fin k → Turing.Tape Γ)
