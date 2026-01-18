@@ -424,3 +424,10 @@ theorem TM.seq.semantics {k : ℕ} {Q1 Q2 Γ : Type*}
       tm₁ tm₂ tapes₀ tapes₁ tapes₂ t₁ t₂ h_first_transforms h_second_transforms
   · exact TM.seq.does_not_halt_yet
       tm₁ tm₂ tapes₀ tapes₁ tapes₂ t₁ t₂ h_first_transforms h_second_transforms
+
+--- Semantics of sequential composition of Turing Machines.
+theorem TM.seq.semantics' {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
+  {tm₁ : TM k Q1 Γ} {tm₂ : TM k Q2 Γ} :
+  (TM.seq tm₁ tm₂).eval = (fun tapes => (tm₁.eval tapes).bind tm₂.eval) := by
+  sorry
