@@ -1,10 +1,11 @@
+import Complexity.Bounds
+import Complexity.Classes
 import Complexity.Dyadic
 import Complexity.MoveUntil
-import Complexity.Successor
-import Complexity.TuringMachine
-import Complexity.TMComposition
-import Complexity.Classes
-import Complexity.TimeInSpace
-import Complexity.Bounds
 import Complexity.SpaceInTime
+import Complexity.Successor
+import Complexity.TapeExtension
+import Complexity.TimeInSpace
+import Complexity.TMComposition
+import Complexity.TuringMachine
 import Complexity.While

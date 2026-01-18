@@ -5,10 +5,10 @@ import Complexity.Bounds
 universe u v
 
 -- Alias for the transition function type
-abbrev Transition (k : Nat) (Q : Type u) (Γ : Type v) :=
+abbrev Transition (k : ℕ) (Q : Type u) (Γ : Type v) :=
   Q → (Fin k → Γ) → Q × ((Fin k) → (Γ × Option Turing.Dir))
 
-structure TM (k : Nat) Q Γ [Inhabited Γ] where
+structure TM (k : ℕ) Q Γ [Inhabited Γ] where
   transition : Transition k Q Γ
   startState : Q
   stopState : Q
@@ -230,7 +230,6 @@ lemma TM.transforms_of_inert {k : ℕ} {Q Γ : Type*}
   · have h_stops_at_t : (tm.configurations tapes₀ t).state = tm.stopState := by
       rw [h_stops_with_tapes₁]
     exact absurd (h_stops_at_t) (Nat.find_min h_stops h_gt)
-
 
 def TM.initial_configuration {k : Nat} {S} {Γ}
   (tm : TM k S (Option Γ)) (input : List Γ) : Configuration k S (Option Γ) :=
