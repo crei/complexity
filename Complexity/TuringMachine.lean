@@ -4,18 +4,6 @@ import Complexity.Bounds
 
 universe u v
 
--- Custom Char type with ' ' as default (instead of 'A')
-def BlankChar := Char
-
-instance : Inhabited BlankChar where
-  default := ' '
-
-instance : DecidableEq BlankChar := inferInstanceAs (DecidableEq Char)
-
--- Coercion from Char to BlankChar
-instance : Coe Char BlankChar where
-  coe c := c
-
 -- Alias for the transition function type
 abbrev Transition (k : Nat) (Q : Type u) (Γ : Type v) :=
   Q → (Fin k → Γ) → Q × ((Fin k) → (Γ × Option Turing.Dir))
@@ -80,8 +68,17 @@ lemma TM.configurations_zero {k : ℕ} {Q Γ : Type*}
   tm.configurations tapes 0 = Configuration.mk tm.startState tapes := by
   rfl
 
---- Defines how a Turing Machine transforms initial tapes into final tapes
---- (if it stops).
+--- Semantics of the Turing machine: It maps a tuple of tapes to the
+--- first tuple of tapes in its configuration sequence where it reaches
+--- the stop state.
+def TM.eval {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (tm : TM k Q Γ) (tapes : Fin k → Turing.Tape Γ) : Part (Fin k → Turing.Tape Γ) :=
+  (PartENat.find (fun t => (tm.configurations tapes t).state = tm.stopState)).map
+    fun t => (tm.configurations tapes t).tapes
+
+--- Another way to define semantics of a Turing machine: As a relation
+--- between the initial and final tape state.
 def TM.transforms_in_exact_time {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ]
   (tm : TM k Q Γ) (tapes₀ tapes₁ : Fin k → Turing.Tape Γ) (t : ℕ) :=
@@ -153,6 +150,28 @@ def TM.transforms {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ]
   (tm : TM k Q Γ) (tapes₀ tapes₁ : Fin k → Turing.Tape Γ) :=
   ∃ t, tm.transforms_in_exact_time tapes₀ tapes₁ t
+
+lemma TM.eval_of_transforms {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (tm : TM k Q Γ) (tapes₀ tapes₁ : Fin k → Turing.Tape Γ)
+  (h_transforms : tm.transforms tapes₀ tapes₁) :
+  tm.eval tapes₀ = tapes₁ := by
+  obtain ⟨t, h_eq, h_min⟩ := h_transforms
+  simp only [Part.coe_some, Part.eq_some_iff]
+  use ⟨t, by simp [h_eq]⟩
+  have h_find_eq_t := TM.transforms_t_eq_find tm tapes₀ tapes₁ t ⟨h_eq, h_min⟩
+  simp [eval, h_find_eq_t, h_eq]
+
+lemma TM.transforms_of_eval {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (tm : TM k Q Γ) (tapes₀ tapes₁ : Fin k → Turing.Tape Γ)
+  (h_eval : tm.eval tapes₀ = tapes₁) :
+  tm.transforms tapes₀ tapes₁ := by
+  simp only [Part.coe_some, Part.eq_some_iff] at h_eval
+  obtain ⟨⟨t', h_stops⟩, h_tapes⟩ := h_eval
+  have h_exists : ∃ t', (tm.configurations tapes₀ t').state = tm.stopState := ⟨t', h_stops⟩
+  use Nat.find h_exists
+  simpa [←h_tapes] using transforms_in_exact_time_of_find tm tapes₀ h_exists
 
 lemma TM.transforms_unique {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
   (tm : TM k Q Γ)
