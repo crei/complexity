@@ -69,14 +69,17 @@ lemma TM.permute_tapes.eval {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq
     | zero =>
       ext
       · simp [TM.configurations, TM.permute_tapes]
-      · simp [TM.configurations, TM.permute_tapes, Function.comp, Equiv.symm_apply_apply]
+      · simp [TM.configurations, TM.permute_tapes, Function.comp]
     | succ t ih =>
       simp only [TM.configurations, Function.iterate_succ_apply']
       have : (tm.permute_tapes σ).transition.step^[t] { state := (tm.permute_tapes σ).startState, tapes := tapes } =
              (let conf := tm.transition.step^[t] { state := tm.startState, tapes := tapes ∘ σ }; { state := conf.state, tapes := conf.tapes ∘ σ.symm }) := ih
       rw [this, TM.permute_tapes.step]
       ext
-      · simp only []
+      · simp []
+        congr 1
+        ext idx
+        simp [Function.comp]
       · funext idx
         simp [Function.comp, Equiv.symm_apply_apply]
   
