@@ -1,33 +1,9 @@
 import Complexity.TuringMachine
+import Complexity.TapeExtension
 
 import Mathlib
 
---- Change the order of the tapes of a Turing machine.
---- tm.with_tapes [2, 4] is a Turing machine whose tape 2 is
---- the original machine's tape 0 and whose tape 4 is the original
---- machine's tape 1
-def with_tapes {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
-  -- TODO we also need that there are no duplicates in seq
-  (tm : TM k.succ Q Γ) (seq : Vector ℕ k.succ) : TM (seq.toList.max (by simp)).succ Q Γ :=
-  TM.mk (
-    fun state symbols =>
-      let (state', ops) := tm.transition state (fun i => symbols ⟨seq[i], by
-            have : seq[i] ≤ seq.toList.max _ := List.le_max_of_mem (by simp); omega
-          ⟩)
-      (state', fun i => match Fin.find? (fun j => seq[j] = i) with
-        | some t => ops t
-        | none => (symbols i, none))
-  ) tm.startState tm.stopState
-
-def TM.swap_tapes {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
-  (tm : TM k Q Γ) (i j : Fin k) : TM k Q Γ :=
-  TM.mk (
-    fun state symbols =>
-      let (state', ops) := tm.transition state ((Vector.ofFn symbols).swap i j).get
-      (state', ((Vector.ofFn ops).swap i j).get)
-  ) tm.startState tm.stopState
-
--- Permute tapes according to a bijection
+--- Permute tapes according to a bijection
 def TM.permute_tapes {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
   (tm : TM k Q Γ) (σ : Equiv.Perm (Fin k)) : TM k Q Γ :=
   TM.mk (
@@ -35,6 +11,18 @@ def TM.permute_tapes {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
       let (state', ops) := tm.transition state (symbols ∘ σ)
       (state', ops ∘ σ.symm)
   ) tm.startState tm.stopState
+
+--- Change the order of the tapes of a Turing machine.
+--- Example: For a 2-tape Turing machine tm,
+--- tm.with_tapes [2, 4] is a 5-tape Turing machine whose tape 2 is
+--- the original machine's tape 0 and whose tape 4 is the original
+--- machine's tape 1
+--- Note that `seq` should not have repetitions.
+--- TODO maybe `seq` should be an injection from Fin k₁ to Fin k₂, then it would be `#v[2, 4].get`.
+def TM.with_tapes {k₁ k₂ : ℕ} {h_le : k₁ ≤ k₂} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k₁ Q Γ) (seq : Vector (Fin k₂) k₁) : TM k₂ Q Γ :=
+  (seq.mapFinIdx fun i t _ => ((⟨i, by omega⟩ : Fin k₂), t)
+    ).foldl (fun tm (a, b) => tm.permute_tapes (Equiv.swap a b)) (tm.extend h_le)
 
 -- Helper lemma: one step of permuted machine equals permuted step
 lemma TM.permute_tapes.step {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
@@ -72,20 +60,28 @@ lemma TM.permute_tapes.step_iter {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [Decida
     simp [Transition.step]
 
 -- General theorem: permuting tapes commutes with evaluation
+@[simp]
 theorem TM.permute_tapes.eval {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
   (tm : TM k Q Γ) (σ : Equiv.Perm (Fin k)) (tapes : Fin k → Turing.Tape Γ) :
   (tm.permute_tapes σ).eval tapes =
-    (tm.eval (tapes ∘ σ)).bind (fun tapes' => tapes' ∘ σ.symm) := by
+    (tm.eval (tapes ∘ σ)).map (fun tapes' => tapes' ∘ σ.symm) := by
   unfold TM.eval
-  simp only [Part.coe_some, Part.bind_some_eq_map]
   simp only [TM.permute_tapes.configurations]
   simp [TM.permute_tapes]
   rfl
 
--- Swap is a special case of permutation
-lemma TM.swap_tapes.eval {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
-  {i j : Fin k} {tm : TM k Q Γ} {tapes : Fin k → Turing.Tape Γ} :
-  (tm.swap_tapes i j).eval tapes =
-    (tm.eval ((Vector.ofFn tapes).swap i j).get).bind
-    fun tapes' => ((Vector.ofFn tapes').swap i j).get := by
+theorem TM.with_tapes.eval_1
+  {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  {j : Fin k.succ}
+  (tm : TM 1 Q Γ)
+  (tapes : Fin k.succ → Turing.Tape Γ) :
+  (tm.with_tapes #v[j] (h_le := by omega)).eval tapes =
+    (tm.eval (fun _ => tapes j)).map
+    (fun tapes' => fun t => if t = j then tapes' 0 else tapes t) := by
+  unfold TM.with_tapes
+  simp
+
+
+
+
   sorry
