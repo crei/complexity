@@ -8,4 +8,5 @@ import Complexity.TapeExtension
 import Complexity.TimeInSpace
 import Complexity.TMComposition
 import Complexity.TuringMachine
+import Complexity.WithTapes
 import Complexity.While
