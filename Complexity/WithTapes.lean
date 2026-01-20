@@ -70,6 +70,7 @@ theorem TM.permute_tapes.eval {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [Decidable
   simp [TM.permute_tapes]
   rfl
 
+@[simp]
 theorem TM.with_tapes.eval_1
   {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
   {j : Fin k.succ}
@@ -77,11 +78,12 @@ theorem TM.with_tapes.eval_1
   (tapes : Fin k.succ → Turing.Tape Γ) :
   (tm.with_tapes #v[j] (h_le := by omega)).eval tapes =
     (tm.eval (fun _ => tapes j)).map
-    (fun tapes' => fun t => if t = j then tapes' 0 else tapes t) := by
+    (fun tapes' t => if t = j then tapes' 0 else tapes t) := by
   unfold TM.with_tapes
-  simp
-
-
-
-
-  sorry
+  have h_tapes :
+    ((fun tapes'' : Fin k.succ → Turing.Tape Γ => tapes'' ∘ Equiv.swap 0 j) ∘
+    (fun (tapes'' : Fin 1 → Turing.Tape Γ) i =>
+      if h : i = 0 then tapes'' ⟨i, by simp [h]⟩ else tapes (Equiv.swap 0 j i))) =
+    fun tapes' => (fun t => if t = j then tapes' 0 else tapes t) := by
+    grind
+  simp [Part.map_map, h_tapes]
