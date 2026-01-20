@@ -19,10 +19,6 @@ def with_tapes {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
         | none => (symbols i, none))
   ) tm.startState tm.stopState
 
--- TODO this is rather complicated, maybe easier to implement using swap operations?
--- tm.with_tapes [2, 4] =
---   (tm.extend 5).swap (0 2).swap(1 4)
-
 def TM.swap_tapes {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
   (tm : TM k Q Γ) (i j : Fin k) : TM k Q Γ :=
   TM.mk (
@@ -44,64 +40,49 @@ def TM.permute_tapes {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
 lemma TM.permute_tapes.step {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
   (tm : TM k Q Γ) (σ : Equiv.Perm (Fin k)) (conf : Configuration k Q Γ) :
   (tm.permute_tapes σ).transition.step conf =
-    let stepped := tm.transition.step { state := conf.state, tapes := conf.tapes ∘ σ }
-    { state := stepped.state, tapes := stepped.tapes ∘ σ.symm } := by
+    let ⟨state', tapes'⟩ := tm.transition.step ⟨conf.state, conf.tapes ∘ σ⟩
+    ⟨state', tapes' ∘ σ.symm⟩ := by
   simp only [Transition.step, TM.permute_tapes, Function.comp]
-  ext1
-  · rfl
-  · ext idx
-    simp only [performTapeOps, Equiv.apply_symm_apply, Function.comp_apply]
-    have : ((fun i => (conf.tapes i).head) ∘ σ) = (fun i => (conf.tapes (σ i)).head) := rfl
-    rw [this]
+  ext <;>
+  simp only [performTapeOps, Equiv.apply_symm_apply, Function.comp_apply] <;>
+  rfl
+
+lemma TM.permute_tapes.configurations {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k Q Γ) (σ : Equiv.Perm (Fin k)) (tapes : Fin k → Turing.Tape Γ) (t : ℕ) :
+  (tm.permute_tapes σ).configurations tapes t =
+    let ⟨state', tapes'⟩ := tm.configurations (tapes ∘ σ) t; ⟨state', tapes' ∘ σ.symm ⟩ := by
+  induction t with
+  | zero => ext <;> simp [TM.configurations, TM.permute_tapes]
+  | succ t ih =>
+    unfold TM.configurations at ih ⊢
+    simp only [Function.iterate_succ_apply']
+    rw [ih, TM.permute_tapes.step]
+    simp [Transition.step]
+
+lemma TM.permute_tapes.step_iter {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
+  (tm : TM k Q Γ) (σ : Equiv.Perm (Fin k)) (tapes : Fin k → Turing.Tape Γ) (t : ℕ) :
+  (tm.permute_tapes σ).configurations tapes t =
+    let ⟨state', tapes'⟩ := tm.configurations (tapes ∘ σ) t; ⟨state', tapes' ∘ σ.symm ⟩ := by
+  induction t with
+  | zero => ext <;> simp [TM.configurations, TM.permute_tapes]
+  | succ t ih =>
+    unfold TM.configurations at ih ⊢
+    simp only [Function.iterate_succ_apply']
+    rw [ih, TM.permute_tapes.step]
+    simp [Transition.step]
 
 -- General theorem: permuting tapes commutes with evaluation
-lemma TM.permute_tapes.eval {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+theorem TM.permute_tapes.eval {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
   (tm : TM k Q Γ) (σ : Equiv.Perm (Fin k)) (tapes : Fin k → Turing.Tape Γ) :
   (tm.permute_tapes σ).eval tapes =
     (tm.eval (tapes ∘ σ)).bind (fun tapes' => tapes' ∘ σ.symm) := by
-  -- Key insight: configurations are related by the permutation
-  have h_config : ∀ t,
-    (tm.permute_tapes σ).configurations tapes t =
-    let conf := tm.configurations (tapes ∘ σ) t
-    { state := conf.state, tapes := conf.tapes ∘ σ.symm } := by
-    intro t
-    induction t with
-    | zero =>
-      ext
-      · simp [TM.configurations, TM.permute_tapes]
-      · simp [TM.configurations, TM.permute_tapes, Function.comp]
-    | succ t ih =>
-      simp only [TM.configurations, Function.iterate_succ_apply']
-      have : (tm.permute_tapes σ).transition.step^[t] { state := (tm.permute_tapes σ).startState, tapes := tapes } =
-             (let conf := tm.transition.step^[t] { state := tm.startState, tapes := tapes ∘ σ }; { state := conf.state, tapes := conf.tapes ∘ σ.symm }) := ih
-      rw [this, TM.permute_tapes.step]
-      ext
-      · simp []
-        congr 1
-        ext idx
-        simp [Function.comp]
-      · funext idx
-        simp [Function.comp, Equiv.symm_apply_apply]
-  
-  -- Now prove the main result
-  ext result
-  simp only [TM.eval, Part.mem_bind_iff]
-  constructor
-  · intro ⟨⟨t, h_stop⟩, h_result⟩
-    simp at h_result h_stop
-    use (tm.configurations (tapes ∘ σ) t).tapes
-    constructor
-    · use ⟨t, by rw [h_config] at h_stop; simp [TM.permute_tapes] at h_stop; exact h_stop⟩
-      simp
-    · rw [← h_result, h_config]
-  · intro ⟨tapes_mid, ⟨⟨t, h_stop⟩, h_mid⟩, h_result⟩
-    simp at h_mid h_result
-    use ⟨t, by rw [h_config]; simp [TM.permute_tapes]; exact h_stop⟩
-    simp
-    rw [h_mid]
-    exact h_result.symm
+  unfold TM.eval
+  simp only [Part.coe_some, Part.bind_some_eq_map]
+  simp only [TM.permute_tapes.configurations]
+  simp [TM.permute_tapes]
+  rfl
 
--- Swap is a special case of permutation  
+-- Swap is a special case of permutation
 lemma TM.swap_tapes.eval {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
   {i j : Fin k} {tm : TM k Q Γ} {tapes : Fin k → Turing.Tape Γ} :
   (tm.swap_tapes i j).eval tapes =
