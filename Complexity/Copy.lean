@@ -91,7 +91,7 @@ lemma copy_core.semantics (l ws₁ ws₂ : List SChar) (h_neq_blank : ∀ i, l.g
 
 -- def copy :=
 --   (((move_until .right (fun c => (c = SChar.sep))).seq
---   (Routines.move .left)).seq -- TODO only on the second tape! --  Define TM.parallel
+--   (Routines.move .left).with_tapes 1).seq -- TODO only on the second tape! --  Define TM.parallel
 --   copy_core) -- TODO define tape extension via Coe.coe
 
 
