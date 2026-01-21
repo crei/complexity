@@ -47,19 +47,7 @@ lemma TM.permute_tapes.configurations {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [D
     rw [ih, TM.permute_tapes.step]
     simp [Transition.step]
 
-lemma TM.permute_tapes.step_iter {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
-  (tm : TM k Q Γ) (σ : Equiv.Perm (Fin k)) (tapes : Fin k → Turing.Tape Γ) (t : ℕ) :
-  (tm.permute_tapes σ).configurations tapes t =
-    let ⟨state', tapes'⟩ := tm.configurations (tapes ∘ σ) t; ⟨state', tapes' ∘ σ.symm ⟩ := by
-  induction t with
-  | zero => ext <;> simp [TM.configurations, TM.permute_tapes]
-  | succ t ih =>
-    unfold TM.configurations at ih ⊢
-    simp only [Function.iterate_succ_apply']
-    rw [ih, TM.permute_tapes.step]
-    simp [Transition.step]
-
--- General theorem: permuting tapes commutes with evaluation
+--- General theorem: permuting tapes commutes with evaluation
 @[simp]
 theorem TM.permute_tapes.eval {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
   (tm : TM k Q Γ) (σ : Equiv.Perm (Fin k)) (tapes : Fin k → Turing.Tape Γ) :
@@ -70,6 +58,7 @@ theorem TM.permute_tapes.eval {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [Decidable
   simp [TM.permute_tapes]
   rfl
 
+--- Semantics of tm.with_tapes when tm is a 1-tape Turing machine.
 @[simp]
 theorem TM.with_tapes.eval_1
   {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
