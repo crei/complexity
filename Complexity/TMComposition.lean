@@ -408,6 +408,7 @@ lemma TM.seq.inert_after_stop_of_inert_after_stop {k : ℕ} {Q1 Q2 Γ : Type*}
       _ = conf := h_combined.symm
 
 --- Semantics of sequential composition of Turing Machines.
+@[simp]
 theorem TM.seq.semantics {k : ℕ} {Q1 Q2 Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
   {tm₁ : TM k Q1 Γ} {tm₂ : TM k Q2 Γ}

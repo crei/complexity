@@ -123,7 +123,7 @@ lemma TM.extends_transforms {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ} [Inh
   {tapes₀ tapes₁ : Fin k₁ → Turing.Tape Γ}
   {h_transforms : tm.transforms tapes₀ tapes₁}
   {tapes' : Fin k₂ → Turing.Tape Γ}
-  (h_tape_eq : ∀ i : Fin k₂, (h : i < k₁) → tapes' i = tapes₀ ⟨i, by omega⟩) :
+  (h_tape_eq : ∀ i : Fin k₂, (h : i < k₁) → tapes' i = tapes₀ ⟨i, h⟩) :
   (tm.extend h_le).transforms
     tapes'
     fun i => if h : i < k₁ then tapes₁ ⟨i, h⟩ else tapes' i := by

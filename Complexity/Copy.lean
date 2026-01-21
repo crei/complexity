@@ -99,15 +99,22 @@ def copy :=
 
 theorem copy.semantics (w : List Char) (ws₁ ws₂ : List (List Char)) :
   copy.transforms_list [w :: ws₁, ws₂].get [w :: ws₁, w :: ws₂].get := by
-  let tm₁ : TM 2 _ _  := ((move_until .right (fun c => (c = SChar.sep))).extend (by omega))
-  let tm₂ : TM 2 _ SChar := ((Routines.move .left).with_tapes #v[(1 : Fin 2)] (h_le := by omega))
-  have h_copy_eq : copy = (tm₁.seq tm₂).seq copy_core := rfl
+  let tm₁ : TM 1 _ _  := move_until .right (fun c => (c = SChar.sep))
+  let tm₂ : TM 2 _ _  := tm₁.extend (by omega)
+  let tm₃ : TM 2 _ SChar := ((Routines.move .left).with_tapes #v[(1 : Fin 2)] (h_le := by omega))
+  have h_copy_eq : copy = (tm₂.seq tm₃).seq copy_core := rfl
   have h_part1 : tm₁.transforms
+        (list_to_tape ∘ [w :: ws₁].get)
+        [Turing.Tape.mk₂ w.coe_schar.reverse (.sep :: (list_to_string ws₁))].get := by
+    sorry
+  have h_part2 : tm₂.transforms
         (list_to_tape ∘ [w :: ws₁, ws₂].get)
         [Turing.Tape.mk₂ w.coe_schar.reverse (.sep :: (list_to_string ws₁)),
          list_to_tape ws₂].get := by
-    sorry
-  have h_part2 : tm₂.transforms
+    unfold tm₂
+    exact TM.extends_transforms (k₂ := 2) (h_transforms := h_part1)
+              (by decide) (by intro i h_i_lt; simp [h_i_lt, list_to_tape]; sorry)
+  have h_part3 : tm₂.transforms
         [Turing.Tape.mk₂ w.coe_schar.reverse (.sep :: (list_to_string ws₁)),
          list_to_tape ws₂].get
         [Turing.Tape.mk₂ w.coe_schar.reverse (.sep :: (list_to_string ws₁)),
@@ -119,4 +126,4 @@ theorem copy.semantics (w : List Char) (ws₁ ws₂ : List (List Char)) :
         (list_to_tape ∘ [w :: ws₁, w :: ws₂].get) := by
     sorry
 
-  exact TM.seq.semantics (TM.seq.semantics h_part1 h_part2) h_core
+  exact TM.seq.semantics (TM.seq.semantics h_part2 h_part3) h_core
