@@ -276,6 +276,23 @@ theorem behaviour_n_steps_for_seq {k : ℕ} {Q1 Q2 Γ : Type*}
   simp only [to_combined_configuration] at h_beh
   exact h_beh
 
+theorem behaviour_n_steps_for_seq' {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Q1] [DecidableEq Q2] [DecidableEq Γ]
+  (tm₁ : TM k Q1 Γ) (tm₂ : TM k Q2 Γ)
+  (tapes₀ : Fin k → Turing.Tape Γ)
+  (n : Nat) :
+  (TM.seq tm₁ tm₂).configurations tapes₀ n =
+    if h : ∃ m < n, (tm₁.configurations tapes₀ m).state = tm₁.stopState then
+      let m := Nat.find h
+      to_combined_configuration (tm₂.configurations (tm₁.configurations tapes₀ m).tapes (n - m))
+    else
+      to_combined_configuration (tm₁.configurations tapes₀ n) := by
+  unfold TM.seq
+  have h_beh := behaviour_n_steps tm₁.transition tm₁.stopState tm₂.startState tm₂.transition
+    (Configuration.mk tm₁.startState tapes₀) n
+  simp only [to_combined_configuration] at h_beh
+  exact h_beh
+
 lemma TM.seq.if_tm_halts_then_find {k : ℕ} {Q1 Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1]
   (tm₁ : TM k Q1 Γ)
@@ -407,7 +424,7 @@ lemma TM.seq.inert_after_stop_of_inert_after_stop {k : ℕ} {Q1 Q2 Γ : Type*}
       _ = to_combined_configuration conf₂ := by rw [h_inert_after_stop₂ conf₂ rfl]
       _ = conf := h_combined.symm
 
---- Semantics of sequential composition of Turing Machines.
+--- Semantics of sequential composition of Turing Machines using the `TM.transforms` function.
 @[simp]
 theorem TM.seq.semantics {k : ℕ} {Q1 Q2 Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
@@ -425,3 +442,23 @@ theorem TM.seq.semantics {k : ℕ} {Q1 Q2 Γ : Type*}
       tm₁ tm₂ tapes₀ tapes₁ tapes₂ t₁ t₂ h_first_transforms h_second_transforms
   · exact TM.seq.does_not_halt_yet
       tm₁ tm₂ tapes₀ tapes₁ tapes₂ t₁ t₂ h_first_transforms h_second_transforms
+
+@[simp]
+--- Semantics of sequential composition of Turing Machines using the `TM.eval` function.
+theorem TM.seq.eval {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
+  {tm₁ : TM k Q1 Γ} {tm₂ : TM k Q2 Γ}
+  {tapes₀ : Fin k → Turing.Tape Γ} :
+  (TM.seq tm₁ tm₂).eval tapes₀ = (tm₁.eval tapes₀).bind fun tapes₁ => tm₂.eval tapes₁ := by
+  let halting_configurations := fun t => (tm₁.configurations tapes₀ t).state = tm₁.stopState
+  by_cases h_tm₁_halts : ∃ t, halting_configurations t
+  · let t := (PartENat.find halting_configurations).get h_tm₁_halts
+    subst halting_configurations
+    unfold TM.eval Part.map PartENat.find
+    simp [h_tm₁_halts]
+
+
+
+    simp [TM.eval, t, h_tm₁_halts]
+    sorry
+  · sorry
