@@ -118,7 +118,7 @@ lemma TM.extends_inert_after_stop {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ
     rfl
 
 @[simp]
-lemma TM.extends_eval {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂)
+lemma TM.extend.eval {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂)
   {Q Γ} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
   {tm : TM k₁ Q Γ}
   {tapes : Fin k₂ → Turing.Tape Γ} :

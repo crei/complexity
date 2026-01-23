@@ -87,8 +87,8 @@ def TM.transforms_in_exact_time {k : ℕ} {Q Γ : Type*}
 
 lemma TM.transforms_in_exact_time_of_find {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
-  (tm : TM k Q Γ)
-  (tapes₀ : Fin k → Turing.Tape Γ)
+  {tm : TM k Q Γ}
+  {tapes₀ : Fin k → Turing.Tape Γ}
   (h_stops : ∃ t, (tm.configurations tapes₀ t).state = tm.stopState) :
   tm.transforms_in_exact_time
     tapes₀
@@ -143,7 +143,7 @@ lemma TM.transforms_t_eq_find {k : ℕ} {Q Γ : Type*}
   intro h_stops
   have h_unique := TM.transforms_in_exact_time_unique tm tapes₀ tapes₁
     (tm.configurations tapes₀ (Nat.find h_stops)).tapes t (Nat.find h_stops)
-    h_transforms (TM.transforms_in_exact_time_of_find tm tapes₀ h_stops)
+    h_transforms (TM.transforms_in_exact_time_of_find h_stops)
   exact h_unique.1.symm
 
 def TM.transforms {k : ℕ} {Q Γ : Type*}
@@ -171,7 +171,7 @@ lemma TM.transforms_of_eval {k : ℕ} {Q Γ : Type*}
   obtain ⟨⟨t', h_stops⟩, h_tapes⟩ := h_eval
   have h_exists : ∃ t', (tm.configurations tapes₀ t').state = tm.stopState := ⟨t', h_stops⟩
   use Nat.find h_exists
-  simpa [←h_tapes] using transforms_in_exact_time_of_find tm tapes₀ h_exists
+  simpa [←h_tapes] using transforms_in_exact_time_of_find h_exists
 
 lemma TM.eval_dom_iff_transforms {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
@@ -228,7 +228,7 @@ lemma TM.transforms_of_inert {k : ℕ} {Q Γ : Type*}
   let t₀ := Nat.find h_stops
   use t₀
   suffices h : (tm.configurations tapes₀ t₀).tapes = tapes₁ from
-    h ▸ TM.transforms_in_exact_time_of_find tm tapes₀ h_stops
+    h ▸ TM.transforms_in_exact_time_of_find h_stops
   rcases Nat.lt_trichotomy t₀ t with h_lt | rfl | h_gt
   · -- t₀ < t
     have h_unchanged : ∀ Δt, tm.configurations tapes₀ (t₀ + Δt) = tm.configurations tapes₀ t₀ := by

@@ -144,3 +144,14 @@ lemma Tape.move_right_blank {Γ} [Inhabited Γ] (l : List Γ) :
 lemma Tape.move_left_cons {Γ} [Inhabited Γ] {c : Γ} {l₁ l₂ : List Γ} :
   Turing.Tape.move .left (.mk₂ (c :: l₁) l₂) = .mk₂ l₁ (c :: l₂) := by
   simp [Turing.Tape.mk₂]
+
+lemma Tape.list_to_fun {Γ} [Inhabited Γ]
+  {t : Turing.Tape Γ} {tapes : List (Turing.Tape Γ)} :
+  (t :: tapes).get = fun i => if h : i = ⟨0, by simp⟩ then t else tapes.get (i.pred h) := by
+  funext i
+  grind
+
+@[simp]
+lemma List.fun_eq_singleton_get {Γ} [Inhabited Γ] {t : Turing.Tape Γ} :
+  (fun _ => t) = [t].get := by
+  funext i; simp

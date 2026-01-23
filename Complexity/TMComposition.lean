@@ -435,19 +435,26 @@ theorem TM.seq.transforms_iff_exists_and_transforms {k : ℕ} {Q1 Q2 Γ : Type*}
   constructor
   · intro h_seq_transforms
     obtain ⟨t, h_seq_transforms_halts, h_seq_transforms_min⟩ := h_seq_transforms
-    have h_tm₁_halts : ∃ t₁ ≤ t, (tm₁.configurations tapes₀ t₁).state = tm₁.stopState := by
-      sorry
-    let t₁ := Nat.find h_tm₁_halts
-    use (tm₁.configurations tapes₀ t₁).tapes
-
     rw [behaviour_n_steps_for_seq tm₁ tm₂ tapes₀ t] at h_seq_transforms_halts
-    sorry
+    by_cases h_tm₁_stops : ∃ m < t, (tm₁.configurations tapes₀ m).state = tm₁.stopState
+    · have h_tm₁_stops_at_all : ∃ m, (tm₁.configurations tapes₀ m).state = tm₁.stopState := by
+        obtain ⟨m, _, h_stops⟩ := h_tm₁_stops
+        exact ⟨m, h_stops⟩
+      have h_find_same : Nat.find h_tm₁_stops = Nat.find h_tm₁_stops_at_all := by
+        sorry
+      simp [h_tm₁_stops] at h_seq_transforms_halts
+      let t₁ := (Nat.find h_tm₁_stops_at_all)
+      use (tm₁.configurations tapes₀ t₁).tapes
+      constructor
+      · exact ⟨t₁, TM.transforms_in_exact_time_of_find h_tm₁_stops_at_all⟩
+      · sorry
+    · sorry
   · intro ⟨tapes₁, h_tm₁_transforms, h_tm₂_transforms⟩
     exact TM.seq.semantics h_tm₁_transforms h_tm₂_transforms
 
 @[simp]
 --- Semantics of sequential composition of Turing Machines using the `TM.eval` function.
-theorem TM.seq.eval' {k : ℕ} {Q1 Q2 Γ : Type*}
+theorem TM.seq.eval {k : ℕ} {Q1 Q2 Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
   {tm₁ : TM k Q1 Γ} {tm₂ : TM k Q2 Γ}
   {tapes₀ : Fin k → Turing.Tape Γ} :

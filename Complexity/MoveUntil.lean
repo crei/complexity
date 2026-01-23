@@ -3,6 +3,7 @@ import Complexity.Dyadic
 import Complexity.TapeLemmas
 import Complexity.AbstractTape
 import Complexity.While
+import Complexity.Routines
 
 import Mathlib
 
@@ -24,11 +25,18 @@ lemma Routines.move.inert_after_stop {Γ} [Inhabited Γ]
   ext <;> simp_all [Transition.step, performTapeOps, Routines.move]
 
 lemma Routines.move.semantics {Γ} [Inhabited Γ] [DecidableEq Γ]
-  (tape : Turing.Tape Γ)
-  (dir : Turing.Dir) :
+  {tape : Turing.Tape Γ} {dir : Turing.Dir} :
   (Routines.move dir).transforms (fun _ => tape) (fun _ => Turing.Tape.move dir tape) := by
   let tm := Routines.move (Γ := Γ) dir
   exact TM.transforms_of_inert tm _ _ (move.inert_after_stop dir) ⟨1, rfl⟩
+
+@[simp]
+lemma Routines.move.eval {Γ} [Inhabited Γ] [DecidableEq Γ]
+  (tape : Turing.Tape Γ)
+  (dir : Turing.Dir) :
+  (Routines.move dir).eval (fun _ => tape) =
+    .some (fun _ => Turing.Tape.move dir tape) :=
+  TM.eval_of_transforms Routines.move.semantics
 
 --- A 1-tape Turing machine that moves its head
 --- in a given direction until a condition is met.
@@ -132,3 +140,17 @@ theorem move_until.left_till_blank {Γ} [Inhabited Γ] [DecidableEq Γ]
         h_non_blank ⟨n - n', by omega⟩ (by simp)
   rw [h_stop_eq]
   simp [move_right_iter_eq_move_int, Turing.Tape.mk₁, ←move_int_neg_one]
+
+@[simp]
+lemma move_until.right_till_separator_list
+  {w : List Char} {ws : List (List Char)} :
+  (move_until .right (fun c => c = .sep)).eval
+    (fun _ => list_to_tape (w :: ws)) =
+    .some (fun _ => Turing.Tape.mk₂ w.coe_schar.reverse (.sep :: (list_to_string ws))) := by
+  apply TM.eval_of_transforms
+  convert move_until.right_till_separator [] w.coe_schar (list_to_string ws) .sep
+    (List.coe_schar_get_neq_sep w)
+  · simp [list_to_tape, Turing.Tape.mk₁]
+  · have h_len: ↑w.length = Int.ofNat w.coe_schar.length := by simp
+    rw [List.coe_schar_length]
+    simp only [h_len, move_int_nonneg, Tape.move_right_append, List.append_nil]
