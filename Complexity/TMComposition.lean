@@ -441,13 +441,17 @@ theorem TM.seq.transforms_iff_exists_and_transforms {k : ℕ} {Q1 Q2 Γ : Type*}
         obtain ⟨m, _, h_stops⟩ := h_tm₁_stops
         exact ⟨m, h_stops⟩
       have h_find_same : Nat.find h_tm₁_stops = Nat.find h_tm₁_stops_at_all := by
-        sorry
+        simp_all [Nat.find_eq_iff, Nat.find_spec h_tm₁_stops_at_all]
       simp [h_tm₁_stops] at h_seq_transforms_halts
       let t₁ := (Nat.find h_tm₁_stops_at_all)
       use (tm₁.configurations tapes₀ t₁).tapes
       constructor
       · exact ⟨t₁, TM.transforms_in_exact_time_of_find h_tm₁_stops_at_all⟩
-      · sorry
+      · simp_all
+        use t - t₁
+        subst t₁
+        simp_all [to_combined_configuration]
+        sorry
     · sorry
   · intro ⟨tapes₁, h_tm₁_transforms, h_tm₂_transforms⟩
     exact TM.seq.semantics h_tm₁_transforms h_tm₂_transforms
