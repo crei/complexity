@@ -451,22 +451,20 @@ theorem TM.seq.eval' {k : ℕ} {Q1 Q2 Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
   {tm₁ : TM k Q1 Γ} {tm₂ : TM k Q2 Γ}
   {tapes₀ : Fin k → Turing.Tape Γ} :
-  (TM.seq tm₁ tm₂).eval tapes₀ = (tm₁.eval tapes₀).bind fun tapes₁ => tm₂.eval tapes₁ := by
+  (TM.seq tm₁ tm₂).eval tapes₀ = (tm₁.eval tapes₀).bind tm₂.eval := by
   apply Part.ext'
-  · simp
-    rw [TM.eval_dom_iff_transforms]
+  · rw [TM.eval_dom_iff_transforms]
     constructor
     · intro ⟨tapes₂, h_transforms⟩
       obtain ⟨tapes₁, h_tr₁, h_tr₂⟩ := TM.seq.transforms_iff_exists_and_transforms.mp h_transforms
-      simp [TM.eval_dom_iff_transforms]
+      simp only [Part.bind_dom, eval_dom_iff_transforms]
       use ⟨tapes₁, h_tr₁⟩
-      simp [TM.eval_of_transforms h_tr₁]
+      simp only [TM.eval_of_transforms h_tr₁, Part.get_some]
       use tapes₂
     · intro ⟨h_tm₁_dom, h_seq_dom⟩
       rw [TM.eval_dom_iff_transforms] at h_tm₁_dom
       obtain ⟨tapes₁, h_tm₁_trans⟩ := h_tm₁_dom
-      let tm₁_result := (TM.eval_of_transforms h_tm₁_trans)
-      simp [tm₁_result] at h_seq_dom
+      simp only [TM.eval_of_transforms h_tm₁_trans, Part.get_some] at h_seq_dom
       obtain ⟨tapes₂, h_tm₂_trans⟩ := TM.eval_dom_iff_transforms.mp h_seq_dom
       exact ⟨tapes₂, TM.seq.semantics h_tm₁_trans h_tm₂_trans⟩
   · intro h_seq_dom h_bind_dom
