@@ -59,7 +59,7 @@ theorem move_until.right_semantics {Γ} [Inhabited Γ] [DecidableEq Γ]
       intro i
       have : tape.move_int (↑i + 1) = (tape.move_int ↑i).move .right := by
         simp [← move_int_one]
-      simpa [this] using Routines.move.semantics (tape.move_int i) .right
+      simpa [this] using Routines.move.semantics
     )
     (by simp [h_stop, Turing.Tape.move_int])
   simpa [move_until, Turing.Tape.move_int] using h_while
@@ -80,7 +80,7 @@ theorem move_until.left_semantics {Γ} [Inhabited Γ] [DecidableEq Γ]
       simp
       have : tape.move_int (-1 + -i) = (tape.move_int (-i)).move .left := by
         simp [← move_int_neg_one, Int.add_comm]
-      simpa [this] using Routines.move.semantics (tape.move_int (-i)) .left
+      simpa [this] using Routines.move.semantics
     )
     (by simp [h_stop])
   simp at h_while

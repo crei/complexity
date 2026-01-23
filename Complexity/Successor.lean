@@ -172,7 +172,7 @@ lemma successor.semantics_string (n : Nat) (ws : List SChar) :
       simp [tape₁]
     · exact List.coe_schar_get_neq_sep _
   have h_tr₂ : (Routines.move .left).transforms tape₁ tape₂ := by
-    exact Routines.move.semantics (tape₁ 0) .left
+    exact Routines.move.semantics
   have h_tr₃ : ∃ shift < (dya n.succ).length, successor_core.transforms tape₂ (tape₃ shift) := by
     exact successor_core.semantics n (.sep :: ws)
   have h_tr₄ : ∀ shift < (dya n.succ).length, (move_until .left is_blank).transforms
@@ -188,7 +188,7 @@ lemma successor.semantics_string (n : Nat) (ws : List SChar) :
       rw [this]
       simp
   have h_tr₅ : (Routines.move .right).transforms tape₄ tape₅ := by
-    simpa [tape₅, tape₄] using Routines.move.semantics (tape₄ 0) .right
+    simpa [tape₅, tape₄] using Routines.move.semantics (tape := (tape₄ 0)) (dir := .right)
   unfold successor
   obtain ⟨shift, h_shift, h_tr₃⟩ := h_tr₃
   let h₁ := TM.seq.semantics h_tr₁ h_tr₂
