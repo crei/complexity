@@ -451,19 +451,22 @@ theorem TM.seq.transforms_iff_exists_and_transforms {k : ℕ} {Q1 Q2 Γ : Type*}
         subst t₁
         simp_all only [ne_eq, to_combined_configuration, Configuration.mk.injEq]
         constructor
-        · simp [ Coe.coe, TM.seq ] at *
+        · simp only [TM.seq, Coe.coe] at *
           aesop
         · intro t' ht' h'
-          convert h_seq_transforms_min ( Nat.find h_tm₁_stops_at_all + t' ) (by omega) _
-          have h_behaviour : (TM.seq tm₁ tm₂).configurations tapes₀ (Nat.find h_tm₁_stops_at_all + t') = to_combined_configuration (tm₂.configurations (tm₁.configurations tapes₀ (Nat.find h_tm₁_stops_at_all)).tapes t') := by
-            convert behaviour_n_steps_for_seq tm₁ tm₂ tapes₀ ( Nat.find h_tm₁_stops_at_all + t' ) using 1;
+          let t'' := Nat.find h_tm₁_stops_at_all + t'
+          convert h_seq_transforms_min t'' (by omega) _
+          have h_behaviour : (tm₁.seq tm₂).configurations tapes₀ t'' =
+             to_combined_configuration (tm₂.configurations (
+                tm₁.configurations tapes₀ (Nat.find h_tm₁_stops_at_all)).tapes t') := by
+            convert behaviour_n_steps_for_seq tm₁ tm₂ tapes₀ t'' using 1;
             split_ifs with h <;> simp_all +decide [ Nat.find_eq_iff ];
             · have h_find_eq : Nat.find h = Nat.find h_tm₁_stops_at_all := by
-                rw [ Nat.find_eq_iff ];
-                exact ⟨ ⟨ Nat.lt_add_of_pos_right ( Nat.pos_of_ne_zero ( by aesop_cat ) ), h_find_same ⟩, fun n hn h => hn.not_le ( Nat.find_min' h_tm₁_stops_at_all h.2 ) ⟩;
+                simp only [Nat.find_eq_iff, Nat.find_lt_iff]
+                aesop_cat
               rw [ h_find_eq, Nat.add_sub_cancel_left ];
-            · exact False.elim ( h _ ( Nat.lt_add_of_pos_right ( Nat.pos_of_ne_zero ( by rintro rfl; simp_all +decide [ Nat.find_eq_iff ] ) ) ) h_find_same );
-          simp_all +decide [ TM.seq ];
+            · exact False.elim ( h _ ( Nat.lt_add_of_pos_right ( Nat.pos_of_ne_zero ( by rintro rfl; simp_all ) ) ) h_find_same );
+          simp_all +decide [ TM.seq, t'' ];
           intro h; simp_all +decide [ TM.configurations ] ;
     ·
       -- Since there's no m < t where tm₁'s configuration stops, the next machine can't have run. Therefore, the combined machine's stop state must be the same as tm₁'s stop state.
