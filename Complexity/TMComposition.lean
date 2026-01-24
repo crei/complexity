@@ -447,27 +447,24 @@ theorem TM.seq.transforms_iff_exists_and_transforms {k : ℕ} {Q1 Q2 Γ : Type*}
       use (tm₁.configurations tapes₀ t₁).tapes
       constructor
       · exact ⟨t₁, TM.transforms_in_exact_time_of_find h_tm₁_stops_at_all⟩
-      · simp_all
-        use t - t₁
+      · use t - t₁
         subst t₁
-        simp_all [to_combined_configuration]
-        -- By definition of `TM.transforms_in_exact_time`, we need to show that there exists a time `t'` such that the configuration after `t'` steps is the stop state and the tapes match.
-        apply And.intro;
-        · simp +decide [ Coe.coe, TM.seq ] at * ; aesop ( simp_config := { singlePass := true } ) ;
-        · intro t' ht' h';
-          convert h_seq_transforms_min ( Nat.find h_tm₁_stops_at_all + t' ) _ _;
-          · linarith [ Nat.sub_add_cancel ( show Nat.find h_tm₁_stops_at_all ≤ t from Nat.le_of_lt ( by linarith [ Nat.find_spec h_tm₁_stops ] ) ) ];
-          · -- Apply the behaviour_n_steps lemma with the appropriate parameters.
-            have h_behaviour : (TM.seq tm₁ tm₂).configurations tapes₀ (Nat.find h_tm₁_stops_at_all + t') = to_combined_configuration (tm₂.configurations (tm₁.configurations tapes₀ (Nat.find h_tm₁_stops_at_all)).tapes t') := by
-              convert behaviour_n_steps_for_seq tm₁ tm₂ tapes₀ ( Nat.find h_tm₁_stops_at_all + t' ) using 1;
-              split_ifs with h <;> simp_all +decide [ Nat.find_eq_iff ];
-              · have h_find_eq : Nat.find h = Nat.find h_tm₁_stops_at_all := by
-                  rw [ Nat.find_eq_iff ];
-                  exact ⟨ ⟨ Nat.lt_add_of_pos_right ( Nat.pos_of_ne_zero ( by aesop_cat ) ), h_find_same ⟩, fun n hn h => hn.not_le ( Nat.find_min' h_tm₁_stops_at_all h.2 ) ⟩;
-                rw [ h_find_eq, Nat.add_sub_cancel_left ];
-              · exact False.elim ( h _ ( Nat.lt_add_of_pos_right ( Nat.pos_of_ne_zero ( by rintro rfl; simp_all +decide [ Nat.find_eq_iff ] ) ) ) h_find_same );
-            simp_all +decide [ TM.seq ];
-            intro h; simp_all +decide [ TM.configurations ] ;
+        simp_all only [ne_eq, to_combined_configuration, Configuration.mk.injEq]
+        constructor
+        · simp [ Coe.coe, TM.seq ] at *
+          aesop
+        · intro t' ht' h'
+          convert h_seq_transforms_min ( Nat.find h_tm₁_stops_at_all + t' ) (by omega) _
+          have h_behaviour : (TM.seq tm₁ tm₂).configurations tapes₀ (Nat.find h_tm₁_stops_at_all + t') = to_combined_configuration (tm₂.configurations (tm₁.configurations tapes₀ (Nat.find h_tm₁_stops_at_all)).tapes t') := by
+            convert behaviour_n_steps_for_seq tm₁ tm₂ tapes₀ ( Nat.find h_tm₁_stops_at_all + t' ) using 1;
+            split_ifs with h <;> simp_all +decide [ Nat.find_eq_iff ];
+            · have h_find_eq : Nat.find h = Nat.find h_tm₁_stops_at_all := by
+                rw [ Nat.find_eq_iff ];
+                exact ⟨ ⟨ Nat.lt_add_of_pos_right ( Nat.pos_of_ne_zero ( by aesop_cat ) ), h_find_same ⟩, fun n hn h => hn.not_le ( Nat.find_min' h_tm₁_stops_at_all h.2 ) ⟩;
+              rw [ h_find_eq, Nat.add_sub_cancel_left ];
+            · exact False.elim ( h _ ( Nat.lt_add_of_pos_right ( Nat.pos_of_ne_zero ( by rintro rfl; simp_all +decide [ Nat.find_eq_iff ] ) ) ) h_find_same );
+          simp_all +decide [ TM.seq ];
+          intro h; simp_all +decide [ TM.configurations ] ;
     ·
       -- Since there's no m < t where tm₁'s configuration stops, the next machine can't have run. Therefore, the combined machine's stop state must be the same as tm₁'s stop state.
       have h_tm1_stop : (tm₁.seq tm₂).stopState = ↑tm₁.stopState := by
