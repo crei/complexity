@@ -459,16 +459,20 @@ theorem TM.seq.transforms_iff_exists_and_transforms {k : ℕ} {Q1 Q2 Γ : Type*}
           have h_behaviour : (tm₁.seq tm₂).configurations tapes₀ t'' =
              to_combined_configuration (tm₂.configurations (
                 tm₁.configurations tapes₀ (Nat.find h_tm₁_stops_at_all)).tapes t') := by
-            convert behaviour_n_steps_for_seq tm₁ tm₂ tapes₀ t'' using 1;
-            split_ifs with h <;> simp_all +decide [ Nat.find_eq_iff ];
+            convert behaviour_n_steps_for_seq tm₁ tm₂ tapes₀ t'' using 1
+            split_ifs with h <;> simp_all only [Nat.find_eq_iff, Nat.find_lt_iff, true_and,
+              Nat.lt_find_iff, le_refl, and_false, not_false_eq_true, implies_true, and_true,
+              not_exists, not_and]
             · have h_find_eq : Nat.find h = Nat.find h_tm₁_stops_at_all := by
                 simp only [Nat.find_eq_iff, Nat.find_lt_iff]
                 aesop_cat
-              rw [ h_find_eq, Nat.add_sub_cancel_left ];
+              rw [ h_find_eq, Nat.add_sub_cancel_left ]
             · exact False.elim ( h _ ( Nat.lt_add_of_pos_right
-                ( Nat.pos_of_ne_zero ( by rintro rfl; simp_all ) ) ) h_find_same );
-          simp_all +decide [ TM.seq, t'' ];
-          intro h; simp_all +decide [ TM.configurations ] ;
+                ( Nat.pos_of_ne_zero ( by rintro rfl; simp_all ) ) ) h_find_same )
+          simp_all only [configurations, seq, to_combined_configuration_state_second,
+            right_eq_ite_iff, reduceCtorEq, imp_false, ne_eq, t'']
+          intro h
+          simp_all
     · have h_tm₂_trivial: tm₂.startState = tm₂.stopState := by
         contrapose! h_seq_transforms_min;
         split_ifs at h_seq_transforms_halts
