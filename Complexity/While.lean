@@ -152,7 +152,8 @@ def TM.iterate {k : ℕ} {Q Γ}
 --   (Routines.while condition tm).eval tapes₀ =
 --     (PartENat.find (fun i =>
 --       ((tm.iterate^[i] (.some tapes₀)).map
---         (fun tapes' : Fin k.succ → (Turing.Tape Γ) => condition (tapes' 0).head)) = Part.some true
+--         (fun tapes' : Fin k.succ → (Turing.Tape Γ) =>
+--           condition (tapes' 0).head)) = Part.some true
 --         )).map
 --     fun i => (tm.iterate^[i] (.some tapes₀)) := by
 --   sorry
