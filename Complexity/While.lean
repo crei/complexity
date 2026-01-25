@@ -142,6 +142,24 @@ theorem Routines.while.semantics {k : ℕ} {Q Γ : Type*}
 -- Semantics of Routines.while in terms of `eval.`.
 -- Note that this only works for Turing machines that always halt
 -- and whose semantics is explicitly given by `semantics`.
+-- Helper lemma: if tm always halts and semantics describes its behavior,
+-- and condition is always true, then the while machine never halts
+lemma Routines.while.no_halt_if_condition_always_true {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (condition : Γ → Bool)
+  (tm : TM k.succ Q Γ)
+  (semantics : (Fin k.succ → (Turing.Tape Γ)) → (Fin k.succ → (Turing.Tape Γ)))
+  (h_inner : ∀ tapes, tm.eval tapes = .some (semantics tapes))
+  (tapes : Fin k.succ → Turing.Tape Γ)
+  (h_always_true : ∀ i, condition ((semantics^[i] tapes) 0).head) :
+  ∀ t, ((Routines.while condition tm).configurations tapes t).state ≠ 
+       (Routines.while condition tm).stopState := by
+  -- TODO: Prove by showing the machine is never in state .main 1
+  -- Key idea: machine alternates between .main 0 and subroutine states,
+  -- never reaching .main 1 because condition is always true.
+  -- This requires an induction argument tracking the state at each step.
+  sorry
+
 @[simp]
 theorem Routines.while.eval {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
@@ -153,6 +171,41 @@ theorem Routines.while.eval {k : ℕ} {Q Γ : Type*}
     (PartENat.find
       fun i => condition (((semantics^[i] tapes) 0).head)
     ).map (semantics^[·] tapes) := by
+  have h_transforms : ∀ i, tm.transforms (semantics^[i] tapes) (semantics^[i.succ] tapes) := by
+    intro i
+    have : semantics (semantics^[i] tapes) = semantics^[i.succ] tapes := by
+      simp [Function.iterate_succ_apply']
+    rw [← this]
+    exact TM.transforms_of_eval (h_inner (semantics^[i] tapes))
+  by_cases h_stops : ∃ m, ¬condition ((semantics^[m] tapes) 0).head
+  · -- Case: the while loop terminates
+    let m := Nat.find h_stops
+    have h_while_transforms : (Routines.while condition tm).transforms tapes (semantics^[m] tapes) :=
+      Routines.while.semantics condition tm (semantics^[·] tapes) h_transforms h_stops
+    rw [TM.eval_of_transforms h_while_transforms]
+    simp [Part.map_some, PartENat.find]
+    -- TODO: Show that Nat.find finds the same value m for both predicates:
+    -- 1. ((Routines.while condition tm).configurations tapes t).state = (Routines.while condition tm).stopState
+    -- 2. condition (((semantics^[·] tapes) 0).head) = false (negated in PartENat.find)
+    -- This requires relating the while machine's execution to the semantics iteration.
+    sorry
+  · -- Case: the while loop does not terminate
+    push_neg at h_stops
+    have h_no_halt := Routines.while.no_halt_if_condition_always_true condition tm semantics h_inner tapes h_stops
+    -- TODO: Show both sides are None/undefined using h_no_halt and h_stops
+    sorry
+
+-- Helper lemma for eval' version
+lemma Routines.while.no_halt_if_condition_always_true' {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (condition : Γ → Bool)
+  (tm : TM k.succ Q Γ)
+  (tapes_seq : ℕ → (Fin k.succ → (Turing.Tape Γ)))
+  (h_inner : ∀ i, tm.eval (tapes_seq i) = .some (tapes_seq i.succ))
+  (h_always_true : ∀ i, condition ((tapes_seq i) 0).head) :
+  ∀ t, ((Routines.while condition tm).configurations (tapes_seq 0) t).state ≠ 
+       (Routines.while condition tm).stopState := by
+  -- TODO: Similar proof as no_halt_if_condition_always_true but with explicit tape sequence
   sorry
 
 @[simp]
@@ -165,4 +218,20 @@ theorem Routines.while.eval' {k : ℕ} {Q Γ : Type*}
     (PartENat.find
       fun i => condition (((tapes_seq i) 0).head)
     ).map tapes_seq := by
-  sorry
+  have h_transforms : ∀ i, tm.transforms (tapes_seq i) (tapes_seq i.succ) := by
+    intro i
+    exact TM.transforms_of_eval (h_inner i)
+  by_cases h_stops : ∃ m, ¬condition ((tapes_seq m) 0).head
+  · -- Case: the while loop terminates
+    let m := Nat.find h_stops
+    have h_while_transforms : (Routines.while condition tm).transforms (tapes_seq 0) (tapes_seq m) :=
+      Routines.while.semantics condition tm tapes_seq h_transforms h_stops
+    rw [TM.eval_of_transforms h_while_transforms]
+    simp [Part.map_some, PartENat.find]
+    -- TODO: Similar to the eval case, show Nat.find equivalence
+    sorry
+  · -- Case: the while loop does not terminate
+    push_neg at h_stops
+    have h_no_halt := Routines.while.no_halt_if_condition_always_true' condition tm tapes_seq h_inner h_stops
+    -- TODO: Show both sides are None/undefined using h_no_halt and h_stops
+    sorry
