@@ -118,31 +118,7 @@ lemma TM.extends_inert_after_stop {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ
     rfl
 
 @[simp]
-lemma TM.extends_transforms {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂) {Q Γ} [Inhabited Γ] [DecidableEq Γ]
-  {tm : TM k₁ Q Γ}
-  {tapes₀ tapes₁ : Fin k₁ → Turing.Tape Γ}
-  {h_transforms : tm.transforms tapes₀ tapes₁}
-  {tapes' : Fin k₂ → Turing.Tape Γ}
-  (h_tape_eq : ∀ i : Fin k₂, (h : i < k₁) → tapes' i = tapes₀ ⟨i, by omega⟩) :
-  (tm.extend h_le).transforms
-    tapes'
-    fun i => if h : i < k₁ then tapes₁ ⟨i, h⟩ else tapes' i := by
-  obtain ⟨t, h_transforms⟩ := h_transforms
-  use t
-  have h_conf : (Configuration.mk tm.startState tapes').restrict h_le =
-      Configuration.mk tm.startState tapes₀ := by
-    simp [Configuration.restrict, h_tape_eq]
-  constructor
-  · let h_transforms := h_transforms.1
-    unfold TM.configurations at h_transforms
-    simp [TM.configurations, TM.extend, h_conf, h_transforms]
-  · intro t' h_t'_lt
-    let h_transforms := h_transforms.2 t' h_t'_lt
-    unfold TM.configurations at h_transforms
-    simp [TM.configurations, TM.extend, h_conf, h_transforms]
-
-@[simp]
-lemma TM.extends_eval {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂)
+lemma TM.extend.eval {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂)
   {Q Γ} [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
   {tm : TM k₁ Q Γ}
   {tapes : Fin k₂ → Turing.Tape Γ} :
@@ -151,3 +127,22 @@ lemma TM.extends_eval {k₁ k₂ : ℕ} (h_le : k₁ ≤ k₂)
       fun i : Fin k₂ => if h : i < k₁ then tapes' ⟨i, h⟩ else tapes i) := by
   simp [TM.extend, TM.eval, TM.configurations]
   rfl
+
+@[simp]
+lemma TM.extends_transforms {k₁ k₂ : ℕ} {Q Γ} [Inhabited Γ] [DecidableEq Γ]
+  {tm : TM k₁ Q Γ}
+  {tapes₀ : Fin k₂ → Turing.Tape Γ}
+  {tapes₁ : Fin k₁ → Turing.Tape Γ}
+  (h_le : k₁ ≤ k₂)
+  (h_transforms : tm.transforms (fun i => tapes₀ ⟨i, by omega⟩) tapes₁) :
+  (tm.extend h_le).transforms tapes₀ (fun i => if h : i < k₁ then tapes₁ ⟨i, h⟩ else tapes₀ i) := by
+  obtain ⟨t, h_transforms⟩ := h_transforms
+  use t
+  constructor
+  · let h_transforms := h_transforms.1
+    unfold TM.configurations at h_transforms
+    simp [TM.configurations, TM.extend, h_transforms, Configuration.restrict]
+  · intro t' h_t'_lt
+    let h_transforms := h_transforms.2 t' h_t'_lt
+    unfold TM.configurations at h_transforms
+    simp [TM.configurations, TM.extend, h_transforms, Configuration.restrict]

@@ -138,3 +138,22 @@ theorem Routines.while.semantics {k : ℕ} {Q Γ : Type*}
   convert Routines.while.exit condition tm (tapes iter_count) (Nat.find_spec h_stops) using 1
   convert congr_arg (tm_while.transition.step) ht using 1
   exact Function.iterate_succ_apply' _ _ _
+
+def TM.iterate {k : ℕ} {Q Γ}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (tm : TM k Q Γ) (tapes : Part (Fin k → Turing.Tape Γ)) : Part (Fin k → Turing.Tape Γ) :=
+  tapes.bind tm.eval
+
+-- @[simp]
+-- theorem Routines.while.eval {k : ℕ} {Q Γ : Type*}
+--   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+--   {condition : Γ → Bool} {tm : TM k.succ Q Γ}
+--   {tapes₀ : Fin k.succ → Turing.Tape Γ} :
+--   (Routines.while condition tm).eval tapes₀ =
+--     (PartENat.find (fun i =>
+--       ((tm.iterate^[i] (.some tapes₀)).map
+--         (fun tapes' : Fin k.succ → (Turing.Tape Γ) =>
+--           condition (tapes' 0).head)) = Part.some true
+--         )).map
+--     fun i => (tm.iterate^[i] (.some tapes₀)) := by
+--   sorry

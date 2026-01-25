@@ -4,6 +4,7 @@ import Complexity.TapeLemmas
 import Complexity.Routines
 import Complexity.MoveUntil
 import Complexity.TMComposition
+import Complexity.WithTapes
 
 import Mathlib
 
@@ -89,12 +90,45 @@ lemma copy_core.semantics (l ws₁ ws₂ : List SChar) (h_neq_blank : ∀ i, l.g
   simp [copy_core]
   grind
 
--- def copy :=
---   (((move_until .right (fun c => (c = SChar.sep))).seq
---   (Routines.move .left).with_tapes 1).seq -- TODO only on the second tape! --  Define TM.parallel
---   copy_core) -- TODO define tape extension via Coe.coe
+--- This is a 2-tape Turing machine that copies the first word from the first tape
+--- to the second tape.
+def copy :=
+  ((((move_until .right (fun c => (c = SChar.sep))).extend (by omega)).seq
+  ((Routines.move .left).with_tapes #v[(1 : Fin 2)] (h_le := by omega))).seq
+  copy_core)
 
-
--- theorem copy.semantics (w : List Char) (ws₁ ws₂ : List (List Char)) :
---   copy.transforms_list [w :: ws₁, ws₂].get [w :: ws₁, w :: ws₂].get := by
---   sorry
+@[simp]
+theorem copy.eval {w : List Char} {ws₁ ws₂ : List (List Char)} :
+  copy.eval (list_to_tape ∘ [w :: ws₁, ws₂].get) =
+    .some (list_to_tape ∘ [w :: ws₁, w :: ws₂].get) := by
+  let tm₁ : TM 1 _ _  := move_until .right (fun c => (c = SChar.sep))
+  let tm₂ : TM 2 _ _  := tm₁.extend (by omega)
+  let tm₃ : TM 2 _ SChar := ((Routines.move .left).with_tapes #v[(1 : Fin 2)] (h_le := by omega))
+  have h_copy_eq : copy = (tm₂.seq tm₃).seq copy_core := rfl
+  have h_part2 : tm₂.eval
+        (list_to_tape ∘ [w :: ws₁, ws₂].get) =
+        .some [Turing.Tape.mk₂ w.coe_schar.reverse (.sep :: (list_to_string ws₁)),
+               list_to_tape ws₂].get := by
+    simp [tm₁, tm₂]
+    grind
+  have h_part3 : tm₃.eval
+        [Turing.Tape.mk₂ w.coe_schar.reverse (.sep :: (list_to_string ws₁)),
+         list_to_tape ws₂].get =
+        .some [Turing.Tape.mk₂ w.coe_schar.reverse (.sep :: (list_to_string ws₁)),
+               (list_to_tape ws₂).move .left].get := by
+    simp [tm₃]
+    grind
+  have h_core : copy_core.eval
+        [Turing.Tape.mk₂ w.coe_schar.reverse (.sep :: (list_to_string ws₁)),
+         (list_to_tape ws₂).move .left].get =
+        .some (list_to_tape ∘ [w :: ws₁, w :: ws₂].get) := by
+    convert TM.eval_of_transforms (
+      copy_core.semantics
+      w.coe_schar.reverse
+      (list_to_string ws₁)
+      (list_to_string ws₂)
+      (by unfold List.coe_schar; simp))
+    ext1 i
+    simp [list_to_tape, list_to_string]
+    grind
+  simp [h_copy_eq, h_part2, h_part3, h_core]

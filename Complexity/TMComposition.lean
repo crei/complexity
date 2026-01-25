@@ -407,7 +407,8 @@ lemma TM.seq.inert_after_stop_of_inert_after_stop {k : ℕ} {Q1 Q2 Γ : Type*}
       _ = to_combined_configuration conf₂ := by rw [h_inert_after_stop₂ conf₂ rfl]
       _ = conf := h_combined.symm
 
---- Semantics of sequential composition of Turing Machines.
+--- Semantics of sequential composition of Turing Machines using the `TM.transforms` function.
+@[simp]
 theorem TM.seq.semantics {k : ℕ} {Q1 Q2 Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
   {tm₁ : TM k Q1 Γ} {tm₂ : TM k Q2 Γ}
@@ -424,3 +425,99 @@ theorem TM.seq.semantics {k : ℕ} {Q1 Q2 Γ : Type*}
       tm₁ tm₂ tapes₀ tapes₁ tapes₂ t₁ t₂ h_first_transforms h_second_transforms
   · exact TM.seq.does_not_halt_yet
       tm₁ tm₂ tapes₀ tapes₁ tapes₂ t₁ t₂ h_first_transforms h_second_transforms
+
+theorem TM.seq.transforms_iff_exists_and_transforms {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
+  {tm₁ : TM k Q1 Γ} {tm₂ : TM k Q2 Γ}
+  {tapes₀ tapes₂ : Fin k → Turing.Tape Γ} :
+  (TM.seq tm₁ tm₂).transforms tapes₀ tapes₂ ↔ ∃ tapes₁,
+    tm₁.transforms tapes₀ tapes₁ ∧ tm₂.transforms tapes₁ tapes₂ := by
+  constructor
+  · intro h_seq_transforms
+    obtain ⟨t, h_seq_transforms_halts, h_seq_transforms_min⟩ := h_seq_transforms
+    rw [behaviour_n_steps_for_seq tm₁ tm₂ tapes₀ t] at h_seq_transforms_halts
+    by_cases h_tm₁_stops : ∃ m < t, (tm₁.configurations tapes₀ m).state = tm₁.stopState
+    · have h_tm₁_stops_at_all : ∃ m, (tm₁.configurations tapes₀ m).state = tm₁.stopState := by
+        obtain ⟨m, _, h_stops⟩ := h_tm₁_stops
+        exact ⟨m, h_stops⟩
+      have h_find_same : Nat.find h_tm₁_stops = Nat.find h_tm₁_stops_at_all := by
+        simp_all [Nat.find_eq_iff, Nat.find_spec h_tm₁_stops_at_all]
+      simp [h_tm₁_stops] at h_seq_transforms_halts
+      let t₁ := (Nat.find h_tm₁_stops_at_all)
+      use (tm₁.configurations tapes₀ t₁).tapes
+      constructor
+      · exact ⟨t₁, TM.transforms_in_exact_time_of_find h_tm₁_stops_at_all⟩
+      · use t - t₁
+        subst t₁
+        simp_all only [ne_eq, to_combined_configuration, Configuration.mk.injEq]
+        constructor
+        · simp only [TM.seq, Coe.coe] at *
+          aesop
+        · intro t' ht' h'
+          let t'' := Nat.find h_tm₁_stops_at_all + t'
+          convert h_seq_transforms_min t'' (by omega) _
+          have h_behaviour : (tm₁.seq tm₂).configurations tapes₀ t'' =
+             to_combined_configuration (tm₂.configurations (
+                tm₁.configurations tapes₀ (Nat.find h_tm₁_stops_at_all)).tapes t') := by
+            convert behaviour_n_steps_for_seq tm₁ tm₂ tapes₀ t'' using 1
+            split_ifs with h <;> simp_all only [Nat.find_eq_iff, Nat.find_lt_iff, true_and,
+              Nat.lt_find_iff, le_refl, and_false, not_false_eq_true, implies_true, and_true,
+              not_exists, not_and]
+            · have h_find_eq : Nat.find h = Nat.find h_tm₁_stops_at_all := by
+                simp only [Nat.find_eq_iff, Nat.find_lt_iff]
+                aesop_cat
+              rw [ h_find_eq, Nat.add_sub_cancel_left ]
+            · exact False.elim ( h _ ( Nat.lt_add_of_pos_right
+                ( Nat.pos_of_ne_zero ( by rintro rfl; simp_all ) ) ) h_find_same )
+          simp_all only [configurations, seq, to_combined_configuration_state_second,
+            right_eq_ite_iff, reduceCtorEq, imp_false, ne_eq, t'']
+          intro h
+          simp_all
+    · have h_tm₂_trivial: tm₂.startState = tm₂.stopState := by
+        contrapose! h_seq_transforms_min;
+        split_ifs at h_seq_transforms_halts
+        simp_all [ to_combined_configuration ]
+      have h_tm1_stop : (tm₁.seq tm₂).stopState = ↑tm₁.stopState :=
+        TM.seq_stopState_trivial tm₁ tm₂ h_tm₂_trivial
+      have h_tm1_config : (tm₁.configurations tapes₀ t).state = tm₁.stopState := by
+        simp_all [ to_combined_configuration, Coe.coe ]
+      have h_tapes_eq : (tm₁.configurations tapes₀ t).tapes = tapes₂ := by
+        convert congr_arg (fun x => x.tapes) h_seq_transforms_halts using 1
+        simp +decide [ h_tm₁_stops ]
+      use tapes₂
+      constructor
+      · use t
+        constructor <;> aesop
+      · use 0
+        constructor <;> simp [h_tm₂_trivial]
+  · intro ⟨tapes₁, h_tm₁_transforms, h_tm₂_transforms⟩
+    exact TM.seq.semantics h_tm₁_transforms h_tm₂_transforms
+
+@[simp]
+--- Semantics of sequential composition of Turing Machines using the `TM.eval` function.
+theorem TM.seq.eval {k : ℕ} {Q1 Q2 Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q1] [DecidableEq Q2]
+  {tm₁ : TM k Q1 Γ} {tm₂ : TM k Q2 Γ}
+  {tapes₀ : Fin k → Turing.Tape Γ} :
+  (TM.seq tm₁ tm₂).eval tapes₀ = (tm₁.eval tapes₀).bind tm₂.eval := by
+  apply Part.ext'
+  · rw [TM.eval_dom_iff_transforms]
+    constructor
+    · intro ⟨tapes₂, h_transforms⟩
+      obtain ⟨tapes₁, h_tr₁, h_tr₂⟩ := TM.seq.transforms_iff_exists_and_transforms.mp h_transforms
+      simp only [Part.bind_dom, eval_dom_iff_transforms]
+      use ⟨tapes₁, h_tr₁⟩
+      simp only [TM.eval_of_transforms h_tr₁, Part.get_some]
+      use tapes₂
+    · intro ⟨h_tm₁_dom, h_seq_dom⟩
+      rw [TM.eval_dom_iff_transforms] at h_tm₁_dom
+      obtain ⟨tapes₁, h_tm₁_trans⟩ := h_tm₁_dom
+      simp only [TM.eval_of_transforms h_tm₁_trans, Part.get_some] at h_seq_dom
+      obtain ⟨tapes₂, h_tm₂_trans⟩ := TM.eval_dom_iff_transforms.mp h_seq_dom
+      exact ⟨tapes₂, TM.seq.semantics h_tm₁_trans h_tm₂_trans⟩
+  · intro h_seq_dom h_bind_dom
+    obtain ⟨tapes₂, h_seq_trans⟩ := TM.eval_dom_iff_transforms.mp h_seq_dom
+    obtain ⟨tapes₁, h_tr₁, h_tr₂⟩ := TM.seq.transforms_iff_exists_and_transforms.mp h_seq_trans
+    simp [TM.eval_of_transforms h_tr₁,
+          TM.eval_of_transforms h_tr₂,
+          TM.eval_of_transforms h_seq_trans]
