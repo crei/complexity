@@ -465,29 +465,37 @@ theorem TM.seq.transforms_iff_exists_and_transforms {k : ℕ} {Q1 Q2 Γ : Type*}
                 simp only [Nat.find_eq_iff, Nat.find_lt_iff]
                 aesop_cat
               rw [ h_find_eq, Nat.add_sub_cancel_left ];
-            · exact False.elim ( h _ ( Nat.lt_add_of_pos_right ( Nat.pos_of_ne_zero ( by rintro rfl; simp_all ) ) ) h_find_same );
+            · exact False.elim ( h _ ( Nat.lt_add_of_pos_right
+                ( Nat.pos_of_ne_zero ( by rintro rfl; simp_all ) ) ) h_find_same );
           simp_all +decide [ TM.seq, t'' ];
           intro h; simp_all +decide [ TM.configurations ] ;
-    ·
-      -- Since there's no m < t where tm₁'s configuration stops, the next machine can't have run. Therefore, the combined machine's stop state must be the same as tm₁'s stop state.
+    · -- Since there's no m < t where tm₁'s configuration stops, the next
+      -- machine can't have run. Therefore, the combined machine's stop state
+      -- must be the same as tm₁'s stop state.
       have h_tm1_stop : (tm₁.seq tm₂).stopState = ↑tm₁.stopState := by
         convert TM.seq_stopState_trivial tm₁ tm₂ _;
         contrapose! h_seq_transforms_min;
         split_ifs at h_seq_transforms_halts ; simp_all +decide [ to_combined_configuration ];
-      -- Since there's no m < t where tm₁'s configuration stops, the next machine can't have run. Therefore, the combined machine's stop state must be the same as tm₁'s stop state, and the configurations must match.
+      -- Since there's no m < t where tm₁'s configuration stops, the next
+      -- machine can't have run. Therefore, the combined machine's stop state
+      -- must be the same as tm₁'s stop state, and the configurations must match.
       have h_tm1_config : (tm₁.configurations tapes₀ t).state = tm₁.stopState := by
         split_ifs at h_seq_transforms_halts ; simp_all +decide [ to_combined_configuration ];
         injection h_seq_transforms_halts.1;
       -- Since the configurations are equal, their tapes must be the same.
       have h_tapes_eq : (tm₁.configurations tapes₀ t).tapes = tapes₂ := by
-        convert congr_arg ( fun x : Configuration k ( CombinedState Q1 Q2 ) Γ => x.tapes ) h_seq_transforms_halts using 1;
+        convert congr_arg ( fun x : Configuration k ( CombinedState Q1 Q2 ) Γ =>
+          x.tapes ) h_seq_transforms_halts using 1;
         simp +decide [ h_tm₁_stops ];
-      refine' ⟨ tapes₂, _, _ ⟩;
-      · use t;
-        constructor <;> aesop;
-      · refine' ⟨ 0, _, _ ⟩ <;> simp +decide [ h_tapes_eq ];
-        contrapose! h_seq_transforms_min;
-        refine' ⟨ 0, _, _ ⟩ <;> simp_all +decide [ TM.configurations ]
+      use tapes₂
+      constructor
+      · use t
+        constructor <;> aesop
+      · use 0
+        constructor <;> simp +decide [h_tapes_eq]
+        contrapose! h_seq_transforms_min
+        use 0
+        simp_all +decide [TM.configurations]
   · intro ⟨tapes₁, h_tm₁_transforms, h_tm₂_transforms⟩
     exact TM.seq.semantics h_tm₁_transforms h_tm₂_transforms
 
