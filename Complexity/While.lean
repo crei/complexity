@@ -139,21 +139,48 @@ theorem Routines.while.semantics {k : ℕ} {Q Γ : Type*}
   convert congr_arg (tm_while.transition.step) ht using 1
   exact Function.iterate_succ_apply' _ _ _
 
-def TM.iterate {k : ℕ} {Q Γ}
+-- Semantics of Routines.while in terms of `eval.`.
+-- Note that this only works for Turing machines that always halt
+-- on the sequence of iterated inputs.
+@[simp]
+theorem Routines.while.eval' {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
-  (tm : TM k Q Γ) (tapes : Part (Fin k → Turing.Tape Γ)) : Part (Fin k → Turing.Tape Γ) :=
-  tapes.bind tm.eval
+  {condition : Γ → Bool} {tm : TM k.succ Q Γ}
+  (tapes_seq : ℕ → (Fin k.succ → (Turing.Tape Γ)))
+  (h_inner : ∀ i, tm.eval (tapes_seq i) = .some (tapes_seq i.succ)) :
+  (Routines.while condition tm).eval (tapes_seq 0) =
+    (PartENat.find
+      fun i => ¬condition (((tapes_seq i) 0).head)
+    ).map tapes_seq := by
+  by_cases h_halts: ∃ i, ¬condition ((tapes_seq i) 0).head
+  · convert TM.eval_of_transforms (Routines.while.semantics condition tm tapes_seq
+      (by intro i; exact TM.transforms_of_eval (h_inner i))
+      (by convert h_halts))
+    rw [Part.eq_some_iff]
+    obtain ⟨i, h_halts⟩ := h_halts
+    use ⟨i, by simp [h_halts]⟩
+    simp
+  · have h_no_halts : (PartENat.find fun i => ¬condition (tapes_seq i 0).head) = Part.none := by
+      sorry
+    sorry
+    -- rw [h_no_halts]
+    -- simp
+    -- rw [Part.eq_none_iff']
+    -- simp [TM.eval, PartENat.find]
+    -- by_contra h_does_halt
+    -- simp at h_does_halt
+    -- obtain ⟨t, h_does_halt⟩ := h_does_halt
+    -- simp at h_halts
+    -- sorry
 
--- @[simp]
--- theorem Routines.while.eval {k : ℕ} {Q Γ : Type*}
---   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
---   {condition : Γ → Bool} {tm : TM k.succ Q Γ}
---   {tapes₀ : Fin k.succ → Turing.Tape Γ} :
---   (Routines.while condition tm).eval tapes₀ =
---     (PartENat.find (fun i =>
---       ((tm.iterate^[i] (.some tapes₀)).map
---         (fun tapes' : Fin k.succ → (Turing.Tape Γ) =>
---           condition (tapes' 0).head)) = Part.some true
---         )).map
---     fun i => (tm.iterate^[i] (.some tapes₀)) := by
---   sorry
+theorem Routines.while.eval {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  {condition : Γ → Bool} {tm : TM k.succ Q Γ}
+  (semantics : (Fin k.succ → (Turing.Tape Γ)) → (Fin k.succ → (Turing.Tape Γ)))
+  (h_inner : ∀ tapes, tm.eval tapes = .some (semantics tapes))
+  (tapes : Fin k.succ → Turing.Tape Γ) :
+  (Routines.while condition tm).eval tapes =
+    (PartENat.find
+      fun i => ¬condition (((semantics^[i] tapes) 0).head)
+    ).map (semantics^[·] tapes) := by
+  sorry
