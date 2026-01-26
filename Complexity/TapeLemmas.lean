@@ -136,6 +136,11 @@ theorem Tape.left₀_nth {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) (n : ℕ) :
     rfl
 
 @[simp]
+lemma Tape.write_eq_drop {Γ} [Inhabited Γ] (c : Γ) (l : List Γ) :
+  Turing.Tape.write c (Turing.Tape.mk₁ l) = Turing.Tape.mk₁ (c :: (l.drop 1)) := by
+  simp [Turing.Tape.mk₁, Turing.Tape.mk₂]
+
+@[simp]
 lemma Tape.move_right_blank {Γ} [Inhabited Γ] (l : List Γ) :
   Turing.Tape.move .right (Turing.Tape.mk₁ (default :: l)) = Turing.Tape.mk₁ l := by
   simp [Turing.Tape.mk₁, Turing.Tape.mk₂]

@@ -45,6 +45,10 @@ lemma List.coe_schar_get_neq_sep (x : List Char) (n : Fin x.coe_schar.length) :
   x.coe_schar.get n ≠ .sep := by
   simp [List.coe_schar]
 
+lemma List.coe_schar_getElem_neq_sep (x : List Char) (n : ℕ) (h_n_lt : n < x.coe_schar.length) :
+  x.coe_schar[n] ≠ .sep := by
+  simp [List.coe_schar]
+
 lemma List.coe_schar_get_neq_blank (x : List Char) (n : Fin x.coe_schar.length) :
   x.coe_schar.get n ≠ .blank := by
   simp [List.coe_schar]
