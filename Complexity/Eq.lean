@@ -176,14 +176,15 @@ theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List
       simp [list_to_string, List.coe_schar]
     rw [this]
 
-  have h_part2_different (w₁ w₂ : List Char) (h_neq : w₁ ≠ w₂) :
+  have h_part2_different (h_neq : w₁ ≠ w₂) :
+    ∃ n < w₁.length,
     eq_core.eval [
-        list_to_tape (w₁ :: ws₁),
-        list_to_tape (w₂ :: ws₂),
+        (.move .right)^[n] (list_to_tape (w₁ :: ws₁)),
+        (.move .right)^[n] (list_to_tape (w₂ :: ws₂)),
         .mk₂ [] (.blank :: list_to_string ([] :: ws₃))].get =
       Part.some [
-        sorry,  -- First tape after eq_core
-        sorry,  -- Second tape after eq_core
+        .mk₂ (w₁.coe_schar.reverse) (.sep :: list_to_string ws₁),
+        .mk₂ (w₂.coe_schar.reverse) (.sep :: list_to_string ws₂),
         list_to_tape ([] :: ws₃)
       ].get := by
     rw [list_to_tape_cons, list_to_tape_cons, Turing.Tape.mk₁, Turing.Tape.mk₁]
