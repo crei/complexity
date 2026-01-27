@@ -252,6 +252,19 @@ lemma TM.transforms_of_inert {k : ℕ} {Q Γ : Type*}
       rw [h_stops_with_tapes₁]
     exact absurd (h_stops_at_t) (Nat.find_min h_stops h_gt)
 
+lemma TM.eval_of_inert {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  {tm : TM k Q Γ}
+  {tapes : Fin k → Turing.Tape Γ}
+  (h_inert_after_stop : tm.inert_after_stop)
+  {t : ℕ}
+  (h_stops : (tm.configurations tapes t).state = tm.stopState) :
+  tm.eval tapes = Part.some (tm.configurations tapes t).tapes := by
+  apply TM.eval_of_transforms
+  convert TM.transforms_of_inert _ _ _ h_inert_after_stop ?_
+  use t
+  ext1 <;> simp [h_stops]
+
 def TM.initial_configuration {k : Nat} {S} {Γ}
   (tm : TM k S (Option Γ)) (input : List Γ) : Configuration k S (Option Γ) :=
   let firstTape := Turing.Tape.mk₁ (input.map some)
