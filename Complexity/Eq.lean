@@ -172,12 +172,27 @@ theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List
     simp only [Part.some_inj]
     rw [List.append_nil, list_to_tape]
     rw [Turing.Tape.mk₁]
-    have : list_to_string (['1'] :: ws₃) = SChar.ofChar '1' :: list_to_string ([] :: ws₃) := by sorry
+    have : list_to_string (['1'] :: ws₃) = .ofChar '1' :: list_to_string ([] :: ws₃) := by
+      simp [list_to_string, List.coe_schar]
     rw [this]
+
+  have h_part2_different (w₁ w₂ : List Char) (h_neq : w₁ ≠ w₂) :
+    eq_core.eval [
+        list_to_tape (w₁ :: ws₁),
+        list_to_tape (w₂ :: ws₂),
+        .mk₂ [] (.blank :: list_to_string ([] :: ws₃))].get =
+      Part.some [
+        sorry,  -- First tape after eq_core
+        sorry,  -- Second tape after eq_core
+        list_to_tape ([] :: ws₃)
+      ].get := by
+    rw [list_to_tape_cons, list_to_tape_cons, Turing.Tape.mk₁, Turing.Tape.mk₁]
+    -- Apply eq_core_eval_different for the case where w₁ and w₂ differ
+    sorry
 
   by_cases h : w₁ = w₂
   · subst h
     apply TM.eval_tapes_ext
     intro i
-    match i with | 0 | 1 | 2 => simp [h, eq, h_part1, h_part2_same w₁]; sorry
+    match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2_same w₁]; sorry
   · simp [h]; sorry
