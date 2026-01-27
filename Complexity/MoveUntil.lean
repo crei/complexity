@@ -4,6 +4,7 @@ import Complexity.TapeLemmas
 import Complexity.AbstractTape
 import Complexity.While
 import Complexity.Routines
+import Complexity.TMComposition
 
 import Mathlib
 
@@ -114,7 +115,7 @@ theorem move_until.left_till_blank {Γ} [Inhabited Γ] [DecidableEq Γ]
   (l : List Γ)
   (n : ℕ)
   (h_nlt : n < l.length)
-  (h_non_blank : ∀ i : Fin l.length, i ≤ n → l.get i ≠ default) :
+  (h_non_blank : ∀ i : ℕ, (h_le : i ≤ n) → l[i] ≠ default) :
   (move_until .left (fun c => c = default)).transforms
     (fun _ => (Turing.Tape.move .right)^[n] (Turing.Tape.mk₁ l))
     (fun _ => (Turing.Tape.mk₁ l).move .left) := by
@@ -136,8 +137,7 @@ theorem move_until.left_till_blank {Γ} [Inhabited Γ] [DecidableEq Γ]
       have h_n'_le_n: n' ≤ n := by omega
       have h_neg_n'_add_n: (-(n': ℤ) + (n : ℤ)).toNat = n - n' := by omega
       have h_n_sub_n'_lt_length : n - n' < l.length := by omega
-      simpa [h_neg_n'_add_n, h_n'_le_n, h_n_sub_n'_lt_length] using
-        h_non_blank ⟨n - n', by omega⟩ (by simp)
+      simp_all
   rw [h_stop_eq]
   simp [move_right_iter_eq_move_int, Turing.Tape.mk₁, ←move_int_neg_one]
 
@@ -154,3 +154,33 @@ lemma move_until.right_till_separator_list
   · have h_len: ↑w.length = Int.ofNat w.coe_schar.length := by simp
     rw [List.coe_schar_length]
     simp only [h_len, move_int_nonneg, Tape.move_right_append, List.append_nil]
+
+def Routines.move_to_start :=
+  (move_until .left (fun c => c = SChar.blank)).seq (Routines.move .right)
+
+theorem Routines.move_to_start_eval
+  {c : SChar} {l r : List SChar}
+  (h_c_non_blank : c ≠ .blank)
+  (h_l_non_blank : .blank ∉ l) :
+  Routines.move_to_start.eval (fun _ => Turing.Tape.mk₂ l (c :: r)) =
+    Part.some (fun _ => Turing.Tape.mk₂ [] (l.reverse ++ (c :: r))) := by
+  have h_blank_default : default = SChar.blank := rfl
+  apply TM.eval_of_transforms
+  apply TM.seq.semantics
+      (tapes₁ := (fun _ => (Turing.Tape.mk₁ (l.reverse ++ (c :: r))).move .left))
+  · convert move_until.left_till_blank
+      (l.reverse ++ (c :: r))
+      l.length
+      (by aesop)
+      ?_
+    · simp [Turing.Tape.mk₁]
+    · intro i h_i
+      have : (l.reverse ++ c :: r) = (c :: l).reverse ++ r := by simp
+      simp only [this]
+      rw [List.getElem_append_left (by grind)]
+      rw [h_blank_default]
+      by_cases h : i < l.reverse.length
+      · simp [List.getElem_append_left h]; grind
+      · grind
+  · convert Routines.move.semantics (dir := .right) (Γ := SChar)
+    simp [Turing.Tape.mk₁]
