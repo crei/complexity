@@ -54,20 +54,20 @@ lemma eq_core_step_equal (a : SChar) (h_neq : a ≠ .sep) (l₁ l₂ r₁ r₂ r
       simp [h_neq, eq_core, Transition.step, Turing.Tape.mk₂, performTapeOps]
 
 lemma eq_core_step_non_equal
-  (a b : SChar) (h_neq₁ : a ≠ b) (h_neq₂ : a ≠ .sep) (h_neq₃ : b ≠ .sep)
+  (a b : SChar) (h_neq₁ : a ≠ b)
   (l₁ l₂ r₁ r₂ r₃ : List SChar) :
   eq_core.transition.step
     ⟨eq_core.startState, [.mk₂ l₁ (a :: r₁), .mk₂ l₂ (b :: r₂), .mk₂ [] (.blank :: r₃)].get⟩ =
     ⟨eq_core.stopState, [.mk₂ l₁ (a :: r₁), .mk₂ l₂ (b :: r₂), .mk₂ [] r₃].get⟩ := by
   have h_blank_default : SChar.blank = default := rfl
+  have h_neq_seq : ¬(a = .sep ∧ b = .sep) := by grind
   ext1
-  · simp [h_neq₁, h_neq₂, h_neq₃, eq_core, Transition.step, Turing.Tape.mk₂, performTapeOps]
+  · simp_all [eq_core, Transition.step, Turing.Tape.mk₂, performTapeOps]
   · dsimp
     funext i
     match i with
     | 0 | 1 | 2 =>
-      simp [h_blank_default, h_neq₁, h_neq₂, h_neq₃, eq_core,
-            Transition.step, Turing.Tape.mk₂, performTapeOps]
+      simp_all [eq_core, Transition.step, Turing.Tape.mk₂, performTapeOps]
 
 lemma eq_core_steps_equal
   (l r r₁ r₂ r₃ : List SChar) (h_r_non_sep : .sep ∉ r) :
@@ -213,18 +213,73 @@ lemma eq_core_eval_different_words (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : 
   -- Use the length of the common prefix
   use common.length
   constructor
-  · -- Show common.length ≤ min w₁.length w₂.length
-    sorry
+  · have h1 : common.length ≤ w₁.length := by
+      have : (w₁.coe_schar ++ [SChar.sep]).length = (common ++ a :: rest1).length :=
+        congrArg List.length h_w1
+      simp at this
+      have : w₁.coe_schar.length = w₁.length := List.coe_schar_length w₁
+      omega
+    have h2 : common.length ≤ w₂.length := by
+      have : (w₂.coe_schar ++ [SChar.sep]).length = (common ++ b :: rest2).length :=
+        congrArg List.length h_w2
+      simp at this
+      have : w₂.coe_schar.length = w₂.length := List.coe_schar_length w₂
+      omega
+    omega
 
   -- Now we need to show the evaluation gives the correct result
-  -- Use Tape.move_right_append to move to the position where they differ
-  rw [h_w1, h_w2]
+  -- Rewrite using the decompositions
+  have h_w1_eq : w₁.coe_schar ++ SChar.sep :: list_to_string ws₁ =
+                  common ++ a :: (rest1 ++ list_to_string ws₁) := by
+    calc w₁.coe_schar ++ SChar.sep :: list_to_string ws₁
+        = w₁.coe_schar ++ [SChar.sep] ++ list_to_string ws₁ := by simp
+      _ = common ++ a :: (rest1 ++ list_to_string ws₁) := by simp [h_w1]
+  have h_w2_eq : w₂.coe_schar ++ SChar.sep :: list_to_string ws₂ =
+                  common ++ b :: (rest2 ++ list_to_string ws₂) := by
+    calc w₂.coe_schar ++ SChar.sep :: list_to_string ws₂
+        = w₂.coe_schar ++ [SChar.sep] ++ list_to_string ws₂ := by simp
+      _ = common ++ b :: (rest2 ++ list_to_string ws₂) := by simp [h_w2]
+
+  rw [h_w1_eq, h_w2_eq]
 
   -- After moving right common.length times, we're at the differing position
   rw [Tape.move_right_append, Tape.move_right_append]
 
-  -- Now apply eq_core_eval_different or handle the cases
-  sorry
+  -- Now we have tapes positioned at the differing characters a and b
+  -- We need to show neither a nor b is .sep
+  -- Since a ≠ b and they're the first differing characters, at most one can be .sep
+  -- But actually, both must be from the words (not the appended separator)
+  -- because common contains the longest prefix where they match
+  have h_a_not_sep : a ≠ SChar.sep := by
+    -- If a = .sep, then from h_w1, we have common = w₁.coe_schar and rest1 = []
+    -- But w₁.coe_schar has no separators, so this would mean common has length w₁.length
+    -- Similarly for h_w2 with b
+    -- Since a ≠ b, if a = .sep then b ≠ .sep
+    -- But then w₂.coe_schar = common ++ b :: rest2 where b is not sep
+    -- This means common.length < w₂.coe_schar.length
+    -- Combined with common = w₁.coe_schar, we'd have w₁.length < w₂.length
+    -- and w₂[w₁.length] = b ≠ .sep, which is fine
+    -- But we also have w₁.coe_schar has no .sep, contradicting a = .sep coming after common
+    sorry
+  have h_b_not_sep : b ≠ SChar.sep := by
+    -- Symmetric argument
+    sorry
+
+  -- Convert the no-sep hypothesis to the form needed by eq_core_eval_different
+  have h_common_no_sep' : .sep ∉ common := by
+    intro h_mem
+    exact h_common_no_sep .sep h_mem rfl
+
+  -- Apply eq_core_eval_different
+  -- We have: mk₂ (common.reverse ++ []) (a :: rest1 ++ ...)
+  -- This matches eq_core_eval_different with l=[], r=common
+  convert eq_core_eval_different a b h_ab_neq h_a_not_sep h_b_not_sep
+    [] common
+    (rest1 ++ list_to_string ws₁)
+    (rest2 ++ list_to_string ws₂)
+    (list_to_string ([] :: ws₃))
+    h_common_no_sep' using 2
+  all_goals simp [list_to_tape]
 
 --- A 3-tape Turing machine that pushes the new word "1"
 --- to the third tape if the first words on the first tape are the same
