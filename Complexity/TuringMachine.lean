@@ -77,6 +77,22 @@ def TM.eval {k : ℕ} {Q Γ : Type*}
   (PartENat.find (fun t => (tm.configurations tapes t).state = tm.stopState)).map
     fun t => (tm.configurations tapes t).tapes
 
+lemma TM.eval_tapes_ext {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (tm : TM k.succ Q Γ) (tapes₀ tapes₁ : Fin k.succ → Turing.Tape Γ) :
+  (∀ i, (tm.eval tapes₀).map (fun t => t i) = Part.some (tapes₁ i)) →
+  tm.eval tapes₀ = Part.some tapes₁ := by
+  intro h_eval
+  have h_dom : (tm.eval tapes₀).Dom := by sorry
+  rw [Part.eq_some_iff]
+  use h_dom
+  funext i
+  let x := h_eval i
+  rw [Part.eq_some_iff] at x
+  simp at x
+  simp [h_eval i, h_dom, x]
+  grind
+
 --- Another way to define semantics of a Turing machine: As a relation
 --- between the initial and final tape state.
 def TM.transforms_in_exact_time {k : ℕ} {Q Γ : Type*}

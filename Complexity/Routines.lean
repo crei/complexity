@@ -189,6 +189,12 @@ theorem cons_empty_semantics (ws : List (List Char)) :
     cons_empty_inert_after_stop
     ⟨2, cons_empty_two_steps ws⟩
 
+@[simp]
+theorem cons_empty_eval (ws : List (List Char)) :
+  cons_empty.eval (fun _ => list_to_tape ws) =
+    .some (fun _ => list_to_tape ([] :: ws)) :=
+  TM.eval_of_transforms (cons_empty_semantics ws)
+
 --- Prepend a character to the first word of the first tape.
 def cons_char (c : Char) :
   TM 1 (Fin 3) SChar :=

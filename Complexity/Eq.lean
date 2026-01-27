@@ -134,12 +134,29 @@ def Routines.eq :=
   (Routines.move_to_start.with_tapes #v[1])
 
 @[simp]
-theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃: List (List Char)) :
+theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List Char)) :
   Routines.eq.eval (list_to_tape ∘ [w₁ :: ws₁, w₂ :: ws₂, ws₃].get) =
     Part.some (if h: w₁ = w₂ then
       list_to_tape ∘ [w₁ :: ws₁, w₂ :: ws₂, ['1'] :: ws₃].get
     else
       list_to_tape ∘ [w₁ :: ws₁, w₂ :: ws₂, [] :: ws₃].get) := by
+  have h_blank_is_default: SChar.blank = default := rfl
+  have h_part1 : (((cons_empty.seq (Routines.move .left)).with_tapes #v[2]) : TM 3 _ _).eval
+      (list_to_tape ∘ [w₁ :: ws₁, w₂ :: ws₂, ws₃].get) =
+      Part.some ([
+        list_to_tape (w₁ :: ws₁),
+        list_to_tape (w₂ :: ws₂),
+        .mk₂ [] (.blank :: list_to_string ([] :: ws₃))].get) := by
+    -- TODO create a therem that moves the `.get i` into the `Part.some`?
+    simp only [Fin.isValue, TM.with_tapes.eval_1, Nat.succ_eq_add_one, Nat.reduceAdd,
+      Function.comp_apply, List.get_eq_getElem, List.length_cons, List.length_nil,
+      Fin.coe_ofNat_eq_mod, Nat.mod_succ, List.getElem_cons_succ, List.getElem_cons_zero,
+      TM.seq.eval, cons_empty_eval, Part.bind_some, move.eval, Part.map_some, Part.some_inj]
+    funext i
+    match i with
+    | 0 | 1 | 2 =>
+      simp [Turing.Tape.mk₁, h_blank_is_default, list_to_tape, Turing.Tape.mk₂]
+
   by_cases h : w₁ = w₂
-  · sorry
-  · sorry
+  · simp [h]; sorry
+  · simp [h]; sorry
