@@ -150,7 +150,12 @@ lemma List.coe_schar_differ_at (w₁ w₂ : List Char) (h_neq : w₁ ≠ w₂) :
     w₁.coe_schar ++ [SChar.sep] = common ++ a :: rest1 ∧
     w₂.coe_schar ++ [SChar.sep] = common ++ b :: rest2 := by
   wlog h_length: w₁.length ≤ w₂.length
-  · sorry
+  · -- Symmetric case: if w₂.length ≤ w₁.length, swap them
+    have h_w2_le : w₂.length ≤ w₁.length := Nat.le_of_not_le h_length
+    obtain ⟨common, rest2, rest1, b, a, h_no_sep, h_ba_neq, h_w2, h_w1⟩ :=
+      this w₂ w₁ (Ne.symm h_neq) h_w2_le
+    use common, rest1, rest2, a, b
+    exact ⟨h_no_sep, Ne.symm h_ba_neq, h_w1, h_w2⟩
   induction w₁ generalizing w₂ with
   | nil =>
     cases w₂ with
@@ -160,14 +165,31 @@ lemma List.coe_schar_differ_at (w₁ w₂ : List Char) (h_neq : w₁ ≠ w₂) :
       simp [List.coe_schar]
   | cons c w₁ ih =>
     cases w₂ with
-    | nil => sorry -- contradiction with h_length
+    | nil =>
+      -- contradiction with h_length: (c :: w₁).length ≤ [].length is false
+      simp at h_length
     | cons d w₂' =>
       by_cases h_char_eq : c = d
-      · -- use induction on w₁ and w₂, then prepend c before common and we should have our result.
-        sorry
-      · -- in this case, common is empty, a = c, b = d and in general, it should be similar to the case
-        -- for nil / cons
-        sorry
+      · -- Characters equal, use induction on tails
+        subst h_char_eq
+        obtain ⟨common, rest1, rest2, a, b, h_no_sep, h_ab_neq, h_w1', h_w2'⟩ :=
+          ih w₂' (by simpa using h_neq) (by simp at h_length; omega)
+        use .ofChar c :: common, rest1, rest2, a, b
+        simp only [List.coe_schar, List.map_cons, List.cons_append]
+        constructor
+        · -- Show ∀ x ∈ .ofChar c :: common, x ≠ .sep
+          intro x h_mem
+          cases h_mem with
+          | head => simp
+          | tail _ h => exact h_no_sep x h
+        · constructor
+          · exact h_ab_neq
+          · constructor
+            · simpa [List.coe_schar] using h_w1'
+            · simpa [List.coe_schar] using h_w2'
+      · -- Characters differ: common is empty
+        use [], w₁.coe_schar ++ [.sep], w₂'.coe_schar ++ [.sep], .ofChar c, .ofChar d
+        simp [List.coe_schar, h_char_eq]
 
 lemma eq_core_eval_different_words (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List Char))
     (h_neq : w₁ ≠ w₂) :
