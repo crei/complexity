@@ -275,14 +275,18 @@ theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List
     | 0 | 1 | 2 =>
       simp only [TM.with_tapes.eval_1, Function.comp_apply, TM.seq.eval, cons_empty_eval]
       simp [Turing.Tape.mk₁, h_blank_is_default, list_to_tape, Turing.Tape.mk₂]
-
   by_cases h : w₁ = w₂
   · subst h
     have h_part2 := eq_core_eval_same_words w₁ ws₁ ws₂ ws₃
     apply TM.eval_tapes_ext
+    let h_move := fun r => move_to_start_eval (r := r) (c := .sep)
+      (l := w₁.coe_schar.reverse) (by decide) (by simp [List.coe_schar])
+    have h_list_to_tape {rest : List (List Char)} :
+      Turing.Tape.mk₂ [] (w₁.coe_schar ++ SChar.sep :: list_to_string rest) =
+      list_to_tape (w₁ :: rest) := by simp [list_to_tape, Turing.Tape.mk₁]
     intro i
-    match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2]; sorry
+    match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2, h_move, h_list_to_tape]
   · obtain ⟨n, h_n_le, h_part2⟩ := eq_core_eval_different_words w₁ w₂ ws₁ ws₂ ws₃ h
     apply TM.eval_tapes_ext
     intro i
-    match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2]; sorry
+    match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2];  sorry
