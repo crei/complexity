@@ -77,21 +77,18 @@ def TM.eval {k : ℕ} {Q Γ : Type*}
   (PartENat.find (fun t => (tm.configurations tapes t).state = tm.stopState)).map
     fun t => (tm.configurations tapes t).tapes
 
+--- Extensionality lemma for the tapes of a computation.
 lemma TM.eval_tapes_ext {k : ℕ} {Q Γ : Type*}
   [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
   (tm : TM k.succ Q Γ) (tapes₀ tapes₁ : Fin k.succ → Turing.Tape Γ) :
   (∀ i, (tm.eval tapes₀).map (fun t => t i) = Part.some (tapes₁ i)) →
   tm.eval tapes₀ = Part.some tapes₁ := by
   intro h_eval
-  have h_dom : (tm.eval tapes₀).Dom := by sorry
+  have h_dom : (tm.eval tapes₀).Dom := (Part.eq_some_iff.mp (h_eval 0)).1
   rw [Part.eq_some_iff]
   use h_dom
   funext i
-  let x := h_eval i
-  rw [Part.eq_some_iff] at x
-  simp at x
-  simp [h_eval i, h_dom, x]
-  grind
+  simpa [Part.map_get] using (Part.eq_some_iff.mp (h_eval i)).2
 
 --- Another way to define semantics of a Turing machine: As a relation
 --- between the initial and final tape state.
