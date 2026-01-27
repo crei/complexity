@@ -147,16 +147,37 @@ theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List
         list_to_tape (w₁ :: ws₁),
         list_to_tape (w₂ :: ws₂),
         .mk₂ [] (.blank :: list_to_string ([] :: ws₃))].get) := by
-    -- TODO create a therem that moves the `.get i` into the `Part.some`?
-    simp only [Fin.isValue, TM.with_tapes.eval_1, Nat.succ_eq_add_one, Nat.reduceAdd,
-      Function.comp_apply, List.get_eq_getElem, List.length_cons, List.length_nil,
-      Fin.coe_ofNat_eq_mod, Nat.mod_succ, List.getElem_cons_succ, List.getElem_cons_zero,
-      TM.seq.eval, cons_empty_eval, Part.bind_some, move.eval, Part.map_some, Part.some_inj]
-    funext i
+    apply TM.eval_tapes_ext
+    intro i
     match i with
     | 0 | 1 | 2 =>
+      simp only [TM.with_tapes.eval_1, Function.comp_apply, TM.seq.eval, cons_empty_eval]
       simp [Turing.Tape.mk₁, h_blank_is_default, list_to_tape, Turing.Tape.mk₂]
+  have h_part2_same (w : List Char) :
+    eq_core.eval [
+        list_to_tape (w :: ws₁),
+        list_to_tape (w :: ws₂),
+        .mk₂ [] (.blank :: list_to_string ([] :: ws₃))].get =
+      Part.some [
+        .mk₂ (w.coe_schar.reverse) (.sep :: list_to_string ws₁),
+        .mk₂ (w.coe_schar.reverse) (.sep :: list_to_string ws₂),
+        list_to_tape (['1'] :: ws₃)
+      ].get := by
+    rw [list_to_tape_cons, list_to_tape_cons, Turing.Tape.mk₁, Turing.Tape.mk₁]
+    rw [eq_core_eval_same [] w.coe_schar
+      (list_to_string ws₁)
+      (list_to_string ws₂)
+      (list_to_string ([] :: ws₃))
+      (by exact List.not_sep_getElem_coe_schar)]
+    simp only [Part.some_inj]
+    rw [List.append_nil, list_to_tape]
+    rw [Turing.Tape.mk₁]
+    have : list_to_string (['1'] :: ws₃) = SChar.ofChar '1' :: list_to_string ([] :: ws₃) := by sorry
+    rw [this]
 
   by_cases h : w₁ = w₂
-  · simp [h]; sorry
+  · subst h
+    apply TM.eval_tapes_ext
+    intro i
+    match i with | 0 | 1 | 2 => simp [h, eq, h_part1, h_part2_same w₁]; sorry
   · simp [h]; sorry
