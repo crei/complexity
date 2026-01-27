@@ -141,6 +141,16 @@ lemma eq_core_eval_different
   rw [eq_core_steps_equal l r (a :: r₁) (b :: r₂) r₃ h_r_non_sep]
   rw [eq_core_step_non_equal a b h_neq₁ h_neq₂ h_neq₃ (r.reverse ++ l) (r.reverse ++ l) r₁ r₂ r₃]
 
+-- Helper: Find where two different Char lists first differ when encoded as SChar
+-- This gives us the common prefix and first differing characters
+lemma List.coe_schar_differ_at (w1 w2 : List Char) (h_neq : w1 ≠ w2) :
+  ∃ (common rest1 rest2 : List SChar), ∃ (a b : SChar),
+    (∀ c ∈ common, c ≠ .sep) ∧
+    (a ≠ b) ∧
+    w1.coe_schar ++ [SChar.sep] = common ++ a :: rest1 ∧
+    w2.coe_schar ++ [SChar.sep] = common ++ b :: rest2 := by
+  sorry
+
 lemma eq_core_eval_different_words (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List Char))
     (h_neq : w₁ ≠ w₂) :
   ∃ n ≤ min w₁.length w₂.length,
@@ -153,6 +163,27 @@ lemma eq_core_eval_different_words (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : 
       (.move .right)^[n] (list_to_tape (w₂ :: ws₂)),
       list_to_tape ([] :: ws₃)
     ].get := by
+  -- Convert to tape representation
+  rw [list_to_tape_cons, list_to_tape_cons, Turing.Tape.mk₁, Turing.Tape.mk₁]
+
+  -- Get the decomposition of where the words differ
+  obtain ⟨common, rest1, rest2, h_w1, h_w2, h_common_no_sep, h_differ⟩ :=
+    List.coe_schar_differ_at w₁ w₂ h_neq
+
+  -- Use the length of the common prefix
+  use common.length
+  constructor
+  · -- Show common.length ≤ min w₁.length w₂.length
+    sorry
+
+  -- Now we need to show the evaluation gives the correct result
+  -- Use Tape.move_right_append to move to the position where they differ
+  rw [h_w1, h_w2]
+
+  -- After moving right common.length times, we're at the differing position
+  rw [Tape.move_right_append, Tape.move_right_append]
+
+  -- Now apply eq_core_eval_different or handle the cases
   sorry
 
 --- A 3-tape Turing machine that pushes the new word "1"
