@@ -158,6 +158,7 @@ lemma move_until.right_till_separator_list
 def Routines.move_to_start :=
   (move_until .left (fun c => c = SChar.blank)).seq (Routines.move .right)
 
+@[simp]
 theorem Routines.move_to_start_eval
   {c : SChar} {l r : List SChar}
   (h_c_non_blank : c ≠ .blank)

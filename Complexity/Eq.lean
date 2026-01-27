@@ -4,6 +4,9 @@ import Complexity.TapeLemmas
 import Complexity.AbstractTape
 import Complexity.While
 import Complexity.Routines
+import Complexity.WithTapes
+import Complexity.TMComposition
+import Complexity.MoveUntil
 
 import Mathlib
 
@@ -119,8 +122,24 @@ lemma eq_core_eval_same
 --- to the third tape if the first words on the first tape are the same
 --- and otherwise pushes the empty word to the third tape.
 
+-- push empty word on the third tape
 -- move left on the third tape
 -- run core
 -- run "move_to_start" on first tape
 -- run "move_to_start" on second tape
--- def Routines.eq :=
+def Routines.eq :=
+  (((((cons_empty.seq (Routines.move .left)).with_tapes #v[2]) : TM 3 _ _).seq
+    eq_core).seq
+  (Routines.move_to_start.with_tapes #v[0])).seq
+  (Routines.move_to_start.with_tapes #v[1])
+
+@[simp]
+theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃: List (List Char)) :
+  Routines.eq.eval (list_to_tape ∘ [w₁ :: ws₁, w₂ :: ws₂, ws₃].get) =
+    Part.some (if h: w₁ = w₂ then
+      list_to_tape ∘ [w₁ :: ws₁, w₂ :: ws₂, ['1'] :: ws₃].get
+    else
+      list_to_tape ∘ [w₁ :: ws₁, w₂ :: ws₂, [] :: ws₃].get) := by
+  by_cases h : w₁ = w₂
+  · sorry
+  · sorry
