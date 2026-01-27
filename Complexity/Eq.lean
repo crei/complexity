@@ -87,22 +87,6 @@ lemma eq_core_steps_equal
     funext
     simp
 
-lemma eq_core_eval_different
-  (a b : SChar) (h_neq₁ : a ≠ b) (h_neq₂ : a ≠ .sep) (h_neq₃ : b ≠ .sep)
-  (l r r₁ r₂ r₃ : List SChar) (h_r_non_sep : .sep ∉ r) :
-  eq_core.eval [.mk₂ l (r ++ (a :: r₁)), .mk₂ l (r ++ (b :: r₂)), .mk₂ [] (.blank :: r₃)].get =
-    Part.some [
-      .mk₂ (r.reverse ++ l) (a :: r₁),
-      .mk₂ (r.reverse ++ l) (b :: r₂),
-      .mk₂ [] r₃].get := by
-  have h_start_state : eq_core.startState = 0 := rfl
-  apply TM.eval_of_transforms
-  apply TM.transforms_of_inert _ _ _ eq_core.is_inert_after_stop
-  use r.length.succ
-  simp only [TM.configurations, Function.iterate_succ_apply']
-  rw [eq_core_steps_equal l r (a :: r₁) (b :: r₂) r₃ h_r_non_sep]
-  rw [eq_core_step_non_equal a b h_neq₁ h_neq₂ h_neq₃ (r.reverse ++ l) (r.reverse ++ l) r₁ r₂ r₃]
-
 lemma eq_core_eval_same
   (l r r₁ r₂ r₃ : List SChar) (h_r_non_sep : .sep ∉ r) :
   eq_core.eval [.mk₂ l (r ++ .sep :: r₁), .mk₂ l (r ++ .sep :: r₂), .mk₂ [] (.blank :: r₃)].get =
@@ -141,16 +125,32 @@ lemma eq_core_eval_same_words (w : List Char) (ws₁ ws₂ ws₃ : List (List Ch
     simp [list_to_string, List.coe_schar]
   rw [this]
 
+lemma eq_core_eval_different
+  (a b : SChar) (h_neq₁ : a ≠ b) (h_neq₂ : a ≠ .sep) (h_neq₃ : b ≠ .sep)
+  (l r r₁ r₂ r₃ : List SChar) (h_r_non_sep : .sep ∉ r) :
+  eq_core.eval [.mk₂ l (r ++ (a :: r₁)), .mk₂ l (r ++ (b :: r₂)), .mk₂ [] (.blank :: r₃)].get =
+    Part.some [
+      .mk₂ (r.reverse ++ l) (a :: r₁),
+      .mk₂ (r.reverse ++ l) (b :: r₂),
+      .mk₂ [] r₃].get := by
+  have h_start_state : eq_core.startState = 0 := rfl
+  apply TM.eval_of_transforms
+  apply TM.transforms_of_inert _ _ _ eq_core.is_inert_after_stop
+  use r.length.succ
+  simp only [TM.configurations, Function.iterate_succ_apply']
+  rw [eq_core_steps_equal l r (a :: r₁) (b :: r₂) r₃ h_r_non_sep]
+  rw [eq_core_step_non_equal a b h_neq₁ h_neq₂ h_neq₃ (r.reverse ++ l) (r.reverse ++ l) r₁ r₂ r₃]
+
 lemma eq_core_eval_different_words (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List Char))
     (h_neq : w₁ ≠ w₂) :
-  ∃ n < w₁.length,
+  ∃ n ≤ min w₁.length w₂.length,
   eq_core.eval [
-      (.move .right)^[n] (list_to_tape (w₁ :: ws₁)),
-      (.move .right)^[n] (list_to_tape (w₂ :: ws₂)),
+      list_to_tape (w₁ :: ws₁),
+      list_to_tape (w₂ :: ws₂),
       .mk₂ [] (.blank :: list_to_string ([] :: ws₃))].get =
     Part.some [
-      .mk₂ (w₁.coe_schar.reverse) (.sep :: list_to_string ws₁),
-      .mk₂ (w₂.coe_schar.reverse) (.sep :: list_to_string ws₂),
+      (.move .right)^[n] (list_to_tape (w₁ :: ws₁)),
+      (.move .right)^[n] (list_to_tape (w₂ :: ws₂)),
       list_to_tape ([] :: ws₃)
     ].get := by
   sorry
