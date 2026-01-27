@@ -143,13 +143,23 @@ lemma eq_core_eval_different
 
 -- Helper: Find where two different Char lists first differ when encoded as SChar
 -- This gives us the common prefix and first differing characters
-lemma List.coe_schar_differ_at (w1 w2 : List Char) (h_neq : w1 ≠ w2) :
+lemma List.coe_schar_differ_at (w₁ w₂ : List Char) (h_neq : w₁ ≠ w₂) :
   ∃ (common rest1 rest2 : List SChar), ∃ (a b : SChar),
     (∀ c ∈ common, c ≠ .sep) ∧
     (a ≠ b) ∧
-    w1.coe_schar ++ [SChar.sep] = common ++ a :: rest1 ∧
-    w2.coe_schar ++ [SChar.sep] = common ++ b :: rest2 := by
-  sorry
+    w₁.coe_schar ++ [SChar.sep] = common ++ a :: rest1 ∧
+    w₂.coe_schar ++ [SChar.sep] = common ++ b :: rest2 := by
+  induction w₁ generalizing w₂ with
+  | nil =>
+    -- In this case, common = [], rest1 = [], a = .sep
+    -- and w₂ must be non-empty (because of h_neq). This,
+    -- there is a b such that w₂ = b :: rest2
+    -- we use this b and rest2 for the existentially quantified variables.
+    -- (potentially converted from Char to SChar)
+    -- Then a ≠ b because b is not .sep (it is a charactor of w₂ and List.not_sep_getElem_coe_schar
+    -- ensures that it is not .sep. The other properties should follow by simp.
+    sorry
+  | cons w w₁ ih => sorry
 
 lemma eq_core_eval_different_words (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List Char))
     (h_neq : w₁ ≠ w₂) :
@@ -167,7 +177,7 @@ lemma eq_core_eval_different_words (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : 
   rw [list_to_tape_cons, list_to_tape_cons, Turing.Tape.mk₁, Turing.Tape.mk₁]
 
   -- Get the decomposition of where the words differ
-  obtain ⟨common, rest1, rest2, h_w1, h_w2, h_common_no_sep, h_differ⟩ :=
+  obtain ⟨common, rest1, rest2, a, b, h_common_no_sep, h_ab_neq, h_w1, h_w2⟩ :=
     List.coe_schar_differ_at w₁ w₂ h_neq
 
   -- Use the length of the common prefix
