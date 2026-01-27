@@ -118,6 +118,43 @@ lemma eq_core_eval_same
   rw [eq_core_steps_equal l r (.sep :: r₁) (.sep :: r₂) r₃ h_r_non_sep]
   rw [eq_core_step_separators (r.reverse ++ l) (r.reverse ++ l) r₁ r₂ r₃]
 
+lemma eq_core_eval_same_words (w : List Char) (ws₁ ws₂ ws₃ : List (List Char)) :
+  eq_core.eval [
+      list_to_tape (w :: ws₁),
+      list_to_tape (w :: ws₂),
+      .mk₂ [] (.blank :: list_to_string ([] :: ws₃))].get =
+    Part.some [
+      .mk₂ (w.coe_schar.reverse) (.sep :: list_to_string ws₁),
+      .mk₂ (w.coe_schar.reverse) (.sep :: list_to_string ws₂),
+      list_to_tape (['1'] :: ws₃)
+    ].get := by
+  rw [list_to_tape_cons, list_to_tape_cons, Turing.Tape.mk₁, Turing.Tape.mk₁]
+  rw [eq_core_eval_same [] w.coe_schar
+    (list_to_string ws₁)
+    (list_to_string ws₂)
+    (list_to_string ([] :: ws₃))
+    (by exact List.not_sep_getElem_coe_schar)]
+  simp only [Part.some_inj]
+  rw [List.append_nil, list_to_tape]
+  rw [Turing.Tape.mk₁]
+  have : list_to_string (['1'] :: ws₃) = .ofChar '1' :: list_to_string ([] :: ws₃) := by
+    simp [list_to_string, List.coe_schar]
+  rw [this]
+
+lemma eq_core_eval_different_words (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List Char))
+    (h_neq : w₁ ≠ w₂) :
+  ∃ n < w₁.length,
+  eq_core.eval [
+      (.move .right)^[n] (list_to_tape (w₁ :: ws₁)),
+      (.move .right)^[n] (list_to_tape (w₂ :: ws₂)),
+      .mk₂ [] (.blank :: list_to_string ([] :: ws₃))].get =
+    Part.some [
+      .mk₂ (w₁.coe_schar.reverse) (.sep :: list_to_string ws₁),
+      .mk₂ (w₂.coe_schar.reverse) (.sep :: list_to_string ws₂),
+      list_to_tape ([] :: ws₃)
+    ].get := by
+  sorry
+
 --- A 3-tape Turing machine that pushes the new word "1"
 --- to the third tape if the first words on the first tape are the same
 --- and otherwise pushes the empty word to the third tape.
@@ -132,6 +169,7 @@ def Routines.eq :=
     eq_core).seq
   (Routines.move_to_start.with_tapes #v[0])).seq
   (Routines.move_to_start.with_tapes #v[1])
+
 
 @[simp]
 theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List Char)) :
@@ -153,47 +191,12 @@ theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List
     | 0 | 1 | 2 =>
       simp only [TM.with_tapes.eval_1, Function.comp_apply, TM.seq.eval, cons_empty_eval]
       simp [Turing.Tape.mk₁, h_blank_is_default, list_to_tape, Turing.Tape.mk₂]
-  have h_part2_same (w : List Char) :
-    eq_core.eval [
-        list_to_tape (w :: ws₁),
-        list_to_tape (w :: ws₂),
-        .mk₂ [] (.blank :: list_to_string ([] :: ws₃))].get =
-      Part.some [
-        .mk₂ (w.coe_schar.reverse) (.sep :: list_to_string ws₁),
-        .mk₂ (w.coe_schar.reverse) (.sep :: list_to_string ws₂),
-        list_to_tape (['1'] :: ws₃)
-      ].get := by
-    rw [list_to_tape_cons, list_to_tape_cons, Turing.Tape.mk₁, Turing.Tape.mk₁]
-    rw [eq_core_eval_same [] w.coe_schar
-      (list_to_string ws₁)
-      (list_to_string ws₂)
-      (list_to_string ([] :: ws₃))
-      (by exact List.not_sep_getElem_coe_schar)]
-    simp only [Part.some_inj]
-    rw [List.append_nil, list_to_tape]
-    rw [Turing.Tape.mk₁]
-    have : list_to_string (['1'] :: ws₃) = .ofChar '1' :: list_to_string ([] :: ws₃) := by
-      simp [list_to_string, List.coe_schar]
-    rw [this]
-
-  have h_part2_different (h_neq : w₁ ≠ w₂) :
-    ∃ n < w₁.length,
-    eq_core.eval [
-        (.move .right)^[n] (list_to_tape (w₁ :: ws₁)),
-        (.move .right)^[n] (list_to_tape (w₂ :: ws₂)),
-        .mk₂ [] (.blank :: list_to_string ([] :: ws₃))].get =
-      Part.some [
-        .mk₂ (w₁.coe_schar.reverse) (.sep :: list_to_string ws₁),
-        .mk₂ (w₂.coe_schar.reverse) (.sep :: list_to_string ws₂),
-        list_to_tape ([] :: ws₃)
-      ].get := by
-    rw [list_to_tape_cons, list_to_tape_cons, Turing.Tape.mk₁, Turing.Tape.mk₁]
-    -- Apply eq_core_eval_different for the case where w₁ and w₂ differ
-    sorry
 
   by_cases h : w₁ = w₂
   · subst h
+    have h_part2 := eq_core_eval_same_words w₁ ws₁ ws₂ ws₃
     apply TM.eval_tapes_ext
     intro i
-    match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2_same w₁]; sorry
-  · simp [h]; sorry
+    match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2]; sorry
+  · have h_part2 := eq_core_eval_different_words w₁ w₂ ws₁ ws₂ ws₃ h
+    simp [h]; sorry
