@@ -149,17 +149,25 @@ lemma List.coe_schar_differ_at (w₁ w₂ : List Char) (h_neq : w₁ ≠ w₂) :
     (a ≠ b) ∧
     w₁.coe_schar ++ [SChar.sep] = common ++ a :: rest1 ∧
     w₂.coe_schar ++ [SChar.sep] = common ++ b :: rest2 := by
+  wlog h_length: w₁.length ≤ w₂.length
+  · sorry
   induction w₁ generalizing w₂ with
   | nil =>
-    -- In this case, common = [], rest1 = [], a = .sep
-    -- and w₂ must be non-empty (because of h_neq). This,
-    -- there is a b such that w₂ = b :: rest2
-    -- we use this b and rest2 for the existentially quantified variables.
-    -- (potentially converted from Char to SChar)
-    -- Then a ≠ b because b is not .sep (it is a charactor of w₂ and List.not_sep_getElem_coe_schar
-    -- ensures that it is not .sep. The other properties should follow by simp.
-    sorry
-  | cons w w₁ ih => sorry
+    cases w₂ with
+    | nil => simp at h_neq
+    | cons c w₂' =>
+      use [], [], w₂'.coe_schar ++ [.sep], .sep, .ofChar c
+      simp [List.coe_schar]
+  | cons c w₁ ih =>
+    cases w₂ with
+    | nil => sorry -- contradiction with h_length
+    | cons d w₂' =>
+      by_cases h_char_eq : c = d
+      · -- use induction on w₁ and w₂, then prepend c before common and we should have our result.
+        sorry
+      · -- in this case, common is empty, a = c, b = d and in general, it should be similar to the case
+        -- for nil / cons
+        sorry
 
 lemma eq_core_eval_different_words (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List Char))
     (h_neq : w₁ ≠ w₂) :
