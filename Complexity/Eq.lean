@@ -214,13 +214,11 @@ lemma eq_core_eval_different_words (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : 
       have : (w₁.coe_schar ++ [SChar.sep]).length = (common ++ a :: rest1).length :=
         congrArg List.length h_w1
       simp at this
-      have : w₁.coe_schar.length = w₁.length := List.coe_schar_length w₁
       omega
     have h2 : common.length ≤ w₂.length := by
       have : (w₂.coe_schar ++ [SChar.sep]).length = (common ++ b :: rest2).length :=
         congrArg List.length h_w2
       simp at this
-      have : w₂.coe_schar.length = w₂.length := List.coe_schar_length w₂
       omega
     omega
   -- Now we need to show the evaluation gives the correct result
@@ -251,18 +249,11 @@ lemma eq_core_eval_different_words (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : 
 --- A 3-tape Turing machine that pushes the new word "1"
 --- to the third tape if the first words on the first tape are the same
 --- and otherwise pushes the empty word to the third tape.
-
--- push empty word on the third tape
--- move left on the third tape
--- run core
--- run "move_to_start" on first tape
--- run "move_to_start" on second tape
 def Routines.eq :=
   (((((cons_empty.seq (Routines.move .left)).with_tapes #v[2]) : TM 3 _ _).seq
     eq_core).seq
   (Routines.move_to_start.with_tapes #v[0])).seq
   (Routines.move_to_start.with_tapes #v[1])
-
 
 @[simp]
 theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List Char)) :
@@ -291,5 +282,7 @@ theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List
     apply TM.eval_tapes_ext
     intro i
     match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2]; sorry
-  · have h_part2 := eq_core_eval_different_words w₁ w₂ ws₁ ws₂ ws₃ h
-    simp [h]; sorry
+  · obtain ⟨n, h_n_le, h_part2⟩ := eq_core_eval_different_words w₁ w₂ ws₁ ws₂ ws₃ h
+    apply TM.eval_tapes_ext
+    intro i
+    match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2]; sorry
