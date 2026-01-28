@@ -105,6 +105,10 @@ lemma list_to_string_tail_nonempty
   (list_to_string ((c :: w) :: ws)).tail = (list_to_string (w :: ws)) := by
   simp [list_to_string, List.coe_schar]
 
+lemma blank_not_elem_list_to_string {ls : List (List Char)} :
+  SChar.blank ∉ list_to_string ls := by
+  simp [list_to_string, List.coe_schar]
+
 def list_to_tape (ls : List (List Char)) : Turing.Tape SChar :=
   Turing.Tape.mk₁ (list_to_string ls)
 

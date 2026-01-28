@@ -258,7 +258,7 @@ def Routines.eq :=
 @[simp]
 theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List Char)) :
   Routines.eq.eval (list_to_tape ∘ [w₁ :: ws₁, w₂ :: ws₂, ws₃].get) =
-    Part.some (if h: w₁ = w₂ then
+    Part.some (if w₁ = w₂ then
       list_to_tape ∘ [w₁ :: ws₁, w₂ :: ws₂, ['1'] :: ws₃].get
     else
       list_to_tape ∘ [w₁ :: ws₁, w₂ :: ws₂, [] :: ws₃].get) := by
@@ -288,12 +288,26 @@ theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List
     match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2, h_move, h_list_to_tape]
   · obtain ⟨n, h_n_le, h_part2⟩ := eq_core_eval_different_words w₁ w₂ ws₁ ws₂ ws₃ h
     apply TM.eval_tapes_ext
-    have h_move :
-      (move_to_start.eval
-      fun x => (.move .right)^[n] (list_to_tape (w₁ :: ws₁))) =
-      sorry := by sorry
+    have h_move_w₁ :
+      (move_to_start.eval fun _ => (.move .right)^[n] (list_to_tape (w₁ :: ws₁))) =
+        Part.some fun _ => list_to_tape (w₁ :: ws₁) := by
+      apply Routines.move_to_start_eval'
+      · intro i hi
+        by_contra h_exists_blank
+        let h_has_blank := List.mem_of_getElem h_exists_blank
+        let h_not_has_blank := blank_not_elem_list_to_string (ls := w₁ :: ws₁)
+        contradiction
+      · simp [list_to_string_cons]; omega
+    have h_move_w₂ :
+      (move_to_start.eval fun _ => (.move .right)^[n] (list_to_tape (w₂ :: ws₂))) =
+        Part.some fun _ => list_to_tape (w₂ :: ws₂) := by
+      apply Routines.move_to_start_eval'
+      · intro i hi
+        by_contra h_exists_blank
+        let h_has_blank := List.mem_of_getElem h_exists_blank
+        let h_not_has_blank := blank_not_elem_list_to_string (ls := w₂ :: ws₂)
+        contradiction
+      · simp [list_to_string_cons]; omega
     intro i
     match i with
-    | 0 => simp [eq, h_part1, h_part2];  sorry
-    | 1 => simp [eq, h_part1, h_part2];  sorry
-    | 2 => simp [eq, h_part1, h_part2];  sorry
+    | 0 | 1 | 2 => simp [eq, h_part1, h_part2, h_move_w₁, h_move_w₂, h]
