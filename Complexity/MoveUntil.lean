@@ -185,3 +185,57 @@ theorem Routines.move_to_start_eval
       · grind
   · convert Routines.move.semantics (dir := .right) (Γ := SChar)
     simp [Turing.Tape.mk₁]
+
+@[simp]
+theorem Routines.move_to_start_eval'
+  {w : List SChar} {n : ℕ}
+  (h_n_le : n < w.length)
+  (h_non_blank : ∀ i, ∀ h : i ≤ n, w[i]'(Nat.lt_of_le_of_lt h h_n_le) ≠ .blank) :
+  Routines.move_to_start.eval (fun _ => (.move .right)^[n] (.mk₂ [] w)) =
+    Part.some (fun _ => .mk₂ [] w) := by
+  -- Split w into prefix and suffix
+  let w₁ := w.take n
+  let w₂ := w.drop n
+  have h_w_eq : w = w₁ ++ w₂ := by simp [w₁, w₂]
+  have h_w₁_length : w₁.length = n := by simp [w₁, List.length_take]; omega
+  have h_w₂_nonempty : w₂ ≠ [] := by
+    simp [w₂, List.drop_eq_nil_iff]
+    omega
+  -- Get the head of w₂
+  obtain ⟨c, w'₂, h_w₂_eq⟩ := List.exists_cons_of_ne_nil h_w₂_nonempty
+  -- Prove c ≠ blank
+  have h_c_non_blank : c ≠ .blank := by
+    have h1 : c = w₂.head h_w₂_nonempty := by simp [h_w₂_eq]
+    have h2 : w₂.head h_w₂_nonempty = w[n] := by
+      simp [w₂, List.head_drop]
+    rw [h1, h2]
+    exact h_non_blank n (by omega)
+  -- Prove blank ∉ w₁
+  have h_w₁_non_blank : .blank ∉ w₁ := by
+    intro h_contra
+    have h_mem : ∃ (i : Fin w₁.length), w₁[i] = .blank := by
+      simp only [List.mem_iff_get] at h_contra
+      exact h_contra
+    rcases h_mem with ⟨i, h_i_eq⟩
+    have h_i_lt_n : i.val < n := by
+      simp [w₁, List.length_take] at i
+      omega
+    have h_eq : w₁[i] = w[i.val] := by
+      simp [w₁, List.getElem_take]
+    rw [h_eq] at h_i_eq
+    have h_neq : w[i.val] ≠ .blank := h_non_blank i.val (by omega)
+    exact h_neq h_i_eq
+  -- Prove blank ∉ w₁.reverse
+  have h_w₁_rev_non_blank : .blank ∉ w₁.reverse := by
+    simpa [List.mem_reverse] using h_w₁_non_blank
+  -- Rewrite using the split and apply Tape.move_right_append
+  rw [h_w_eq, h_w₂_eq]
+  have h_tape_eq : (Turing.Tape.move .right)^[n] (Turing.Tape.mk₂ [] (w₁ ++ (c :: w'₂))) =
+                    Turing.Tape.mk₂ (w₁.reverse ++ []) (c :: w'₂) := by
+    rw [← h_w₁_length]
+    exact Tape.move_right_append [] w₁ (c :: w'₂)
+  simp only [List.append_nil] at h_tape_eq
+  rw [h_tape_eq]
+  -- Now apply move_to_start_eval with l := w₁.reverse, r := w'₂
+  have h_eval := @move_to_start_eval c w₁.reverse w'₂ h_c_non_blank h_w₁_rev_non_blank
+  simpa using h_eval

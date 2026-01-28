@@ -288,5 +288,12 @@ theorem Routines.eq_eval (w₁ w₂ : List Char) (ws₁ ws₂ ws₃ : List (List
     match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2, h_move, h_list_to_tape]
   · obtain ⟨n, h_n_le, h_part2⟩ := eq_core_eval_different_words w₁ w₂ ws₁ ws₂ ws₃ h
     apply TM.eval_tapes_ext
+    have h_move :
+      (move_to_start.eval
+      fun x => (.move .right)^[n] (list_to_tape (w₁ :: ws₁))) =
+      sorry := by sorry
     intro i
-    match i with | 0 | 1 | 2 => simp [eq, h_part1, h_part2];  sorry
+    match i with
+    | 0 => simp [eq, h_part1, h_part2];  sorry
+    | 1 => simp [eq, h_part1, h_part2];  sorry
+    | 2 => simp [eq, h_part1, h_part2];  sorry
