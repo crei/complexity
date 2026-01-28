@@ -1,6 +1,7 @@
 import Complexity.Bounds
 import Complexity.Classes
 import Complexity.Dyadic
+import Complexity.Eq
 import Complexity.MoveUntil
 import Complexity.SpaceInTime
 import Complexity.Successor

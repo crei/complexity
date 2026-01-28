@@ -45,6 +45,10 @@ lemma List.coe_schar_get_neq_sep (x : List Char) (n : Fin x.coe_schar.length) :
   x.coe_schar.get n ≠ .sep := by
   simp [List.coe_schar]
 
+lemma List.not_sep_getElem_coe_schar {x : List Char} :
+  .sep ∉ x.coe_schar := by
+  simp [List.coe_schar]
+
 lemma List.coe_schar_get_neq_blank (x : List Char) (n : Fin x.coe_schar.length) :
   x.coe_schar.get n ≠ .blank := by
   simp [List.coe_schar]
@@ -99,6 +103,10 @@ lemma list_to_string_tail_nonempty
   (w : List Char)
   (ws : List (List Char)) :
   (list_to_string ((c :: w) :: ws)).tail = (list_to_string (w :: ws)) := by
+  simp [list_to_string, List.coe_schar]
+
+lemma blank_not_elem_list_to_string {ls : List (List Char)} :
+  SChar.blank ∉ list_to_string ls := by
   simp [list_to_string, List.coe_schar]
 
 def list_to_tape (ls : List (List Char)) : Turing.Tape SChar :=
@@ -188,6 +196,12 @@ theorem cons_empty_semantics (ws : List (List Char)) :
   exact transforms_of_inert cons_empty _ _
     cons_empty_inert_after_stop
     ⟨2, cons_empty_two_steps ws⟩
+
+@[simp]
+theorem cons_empty_eval (ws : List (List Char)) :
+  cons_empty.eval (fun _ => list_to_tape ws) =
+    .some (fun _ => list_to_tape ([] :: ws)) :=
+  TM.eval_of_transforms (cons_empty_semantics ws)
 
 --- Prepend a character to the first word of the first tape.
 def cons_char (c : Char) :

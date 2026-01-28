@@ -77,6 +77,19 @@ def TM.eval {k : ℕ} {Q Γ : Type*}
   (PartENat.find (fun t => (tm.configurations tapes t).state = tm.stopState)).map
     fun t => (tm.configurations tapes t).tapes
 
+--- Extensionality lemma for the tapes of a computation.
+lemma TM.eval_tapes_ext {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  (tm : TM k.succ Q Γ) (tapes₀ tapes₁ : Fin k.succ → Turing.Tape Γ) :
+  (∀ i, (tm.eval tapes₀).map (fun t => t i) = Part.some (tapes₁ i)) →
+  tm.eval tapes₀ = Part.some tapes₁ := by
+  intro h_eval
+  have h_dom : (tm.eval tapes₀).Dom := (Part.eq_some_iff.mp (h_eval 0)).1
+  rw [Part.eq_some_iff]
+  use h_dom
+  funext i
+  simpa [Part.map_get] using (Part.eq_some_iff.mp (h_eval i)).2
+
 --- Another way to define semantics of a Turing machine: As a relation
 --- between the initial and final tape state.
 def TM.transforms_in_exact_time {k : ℕ} {Q Γ : Type*}
@@ -251,6 +264,19 @@ lemma TM.transforms_of_inert {k : ℕ} {Q Γ : Type*}
   · have h_stops_at_t : (tm.configurations tapes₀ t).state = tm.stopState := by
       rw [h_stops_with_tapes₁]
     exact absurd (h_stops_at_t) (Nat.find_min h_stops h_gt)
+
+lemma TM.eval_of_inert {k : ℕ} {Q Γ : Type*}
+  [Inhabited Γ] [DecidableEq Γ] [DecidableEq Q]
+  {tm : TM k Q Γ}
+  {tapes : Fin k → Turing.Tape Γ}
+  (h_inert_after_stop : tm.inert_after_stop)
+  {t : ℕ}
+  (h_stops : (tm.configurations tapes t).state = tm.stopState) :
+  tm.eval tapes = Part.some (tm.configurations tapes t).tapes := by
+  apply TM.eval_of_transforms
+  convert TM.transforms_of_inert _ _ _ h_inert_after_stop ?_
+  use t
+  ext1 <;> simp [h_stops]
 
 def TM.initial_configuration {k : Nat} {S} {Γ}
   (tm : TM k S (Option Γ)) (input : List Γ) : Configuration k S (Option Γ) :=

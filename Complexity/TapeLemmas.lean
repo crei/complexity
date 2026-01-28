@@ -126,6 +126,14 @@ lemma Tape.move_right_append {Γ} [Inhabited Γ] (A B C : List Γ) :
       _ = Turing.Tape.mk₂ (B.reverse ++ (b :: A)) C := by rw [ih]
       _ = Turing.Tape.mk₂ ((b :: B).reverse ++ A) C := by simp
 
+@[simp]
+lemma Tape.move_right_reverse_append {Γ} [Inhabited Γ] (A B C : List Γ) :
+  (Turing.Tape.move .right)^[B.length] (Turing.Tape.mk₂ A (B.reverse ++ C)) =
+     Turing.Tape.mk₂ (B ++ A) C := by
+  have : B.length = B.reverse.length := by simp
+  rw [this]
+  simpa using Tape.move_right_append A B.reverse C
+
 theorem Tape.left₀_nth {Γ} [Inhabited Γ] (tape : Turing.Tape Γ) (n : ℕ) :
   tape.left₀.nth n = tape.nth (-n) := by
   cases n with

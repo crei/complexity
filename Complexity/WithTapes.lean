@@ -19,8 +19,10 @@ def TM.permute_tapes {k : ℕ} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
 --- machine's tape 1
 --- Note that `seq` should not have repetitions.
 --- TODO maybe `seq` should be an injection from Fin k₁ to Fin k₂, then it would be `#v[2, 4].get`.
-def TM.with_tapes {k₁ k₂ : ℕ} {h_le : k₁ ≤ k₂} {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
-  (tm : TM k₁ Q Γ) (seq : Vector (Fin k₂) k₁) : TM k₂ Q Γ :=
+def TM.with_tapes {Q Γ : Type*} [Inhabited Γ] [DecidableEq Γ]
+  {k₁ k₂ : ℕ}
+  (tm : TM k₁ Q Γ) (seq : Vector (Fin k₂) k₁)
+  (h_le : k₁ ≤ k₂ := by omega) : TM k₂ Q Γ :=
   (seq.mapFinIdx fun i t _ => ((⟨i, by omega⟩ : Fin k₂), t)
     ).foldl (fun tm (a, b) => tm.permute_tapes (Equiv.swap a b)) (tm.extend h_le)
 
