@@ -2,6 +2,7 @@ import Complexity.Bounds
 import Complexity.Classes
 import Complexity.Dyadic
 import Complexity.MoveUntil
+import Complexity.Pop
 import Complexity.SpaceInTime
 import Complexity.Successor
 import Complexity.TapeExtension
