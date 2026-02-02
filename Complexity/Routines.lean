@@ -159,6 +159,35 @@ lemma transforms_of_inert {k : ℕ} {Q : Type*}
   TM.transforms_of_inert tm (list_to_tape ∘ initial) (list_to_tape ∘ final)
     h_inert_after_stop h_stops_with_final
 
+--- Evaluate the function computed by a Turing machine on a list of words per tape.
+--- The result is undefined either because the machine did not halt or because
+--- it is not a representation of a list of words per tape.
+--- TODO: Make this computable by turning the second part into an actual decoding.
+noncomputable def TM.eval_list {k : ℕ} {Q : Type*} [DecidableEq Q]
+  (tm : TM k Q SChar)
+  (initial : Fin k → (List (List Char))) :
+  Part (Fin k → (List (List Char))) :=
+  tm.eval (list_to_tape ∘ initial) >>= fun final_tapes =>
+    ⟨∃ lists : Fin k → (List (List Char)), list_to_tape ∘ lists = final_tapes,
+      fun x => x.choose⟩
+
+-- list_to_tape is injective, but not surjective, so we want the preimage if it exists
+
+lemma TM.eval_list_of_eval_list_to_tape {k : ℕ} {Q : Type*} [DecidableEq Q]
+  {tm : TM k Q SChar}
+  {initial : Fin k → (List (List Char))}
+  {final : Fin k → (List (List Char))}
+  (h_eval : tm.eval (list_to_tape ∘ initial) = .some (list_to_tape ∘ final)) :
+  tm.eval_list initial = .some final := by
+  simp [TM.eval_list, h_eval]
+  apply Part.ext'
+  · simp
+  · simp
+    apply Exists.choose_spec
+
+
+    sorry
+
 --- Prepend a new empty word to the first tape.
 def cons_empty :
   TM 1 (Fin 3) SChar :=
